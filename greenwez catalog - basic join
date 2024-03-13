@@ -1,0 +1,120 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):19/12/2023
+# project: greenweex catalog - basic joins
+------------------------------------
+
+
+--  performing a join request between green_product and green_pdt_segment to get the product_name and the product_segment
+
+SELECT
+  p.pdt_name,
+  sgt.pdt_segment
+FROM `first-project-408000.green_catalog.green_product` p
+INNER JOIN `first-project-408000.green_catalog.green_pdt_segment` sgt
+ON p.products_id = sgt.products_id;
+
+-- performing a join request on green_stock to add all stock information to green_product
+
+SELECT
+--product table --
+  p.products_id,
+  p.pdt_name,
+  p.products_status,
+  p.categories_id,
+  p.promo_id,
+-- stock table --
+  st.stock,
+  st.stock_forecast
+FROM `first-project-408000.green_catalog.green_product` p
+LEFT JOIN `first-project-408000.green_catalog.green_stock` st
+ON p.products_id = st.pdt_id
+
+
+-- getting products_id, pdt_name, promo_name and promo_pourcent from green_product ang
+-- green_promo
+
+SELECT 
+-- product table --
+  p.products_id,
+  p.pdt_name,
+-- promo table --
+  pr.promo_name,
+  pr.promo_pourcent
+FROM `first-project-408000.green_catalog.green_product` p
+LEFT JOIN `first-project-408000.green_catalog.green_promo` pr
+ON p.promo_id = pr.promo_id;
+
+# replicating the same table using left join
+
+
+SELECT 
+-- product table --
+  p.products_id,
+  p.pdt_name,
+-- promo table --
+  pr.promo_name,
+  pr.promo_pourcent
+FROM `first-project-408000.green_catalog.green_promo` pr
+RIGHt JOIN `first-project-408000.green_catalog.green_product`p
+ON p.promo_id = pr.promo_id
+
+# adding all price information from green_price to green_product
+
+SELECT 
+-- product table --
+  p.products_id,
+  p.pdt_name,
+  p.products_status,
+  p.categories_id,
+  p.promo_id,
+-- price table --
+  pr.ps_cat,
+  pr.pd_cat
+FROM `first-project-408000.green_catalog.green_product` p
+INNER JOIN `first-project-408000.green_catalog.green_price` pr
+ON p.products_id = pr.products_id;
+
+
+# getting the product_id, pdt_name and all categories information
+
+SELECT 
+-- product table --
+  p.products_id,
+  p.pdt_name,
+-- categories table --
+  c.categories_id,
+  c.category_1,
+  c.category_2,
+  c.category_3
+FROM `first-project-408000.green_catalog.green_product` p
+INNER JOIN `first-project-408000.green_catalog.green_categories` c
+ON p.categories_id = c.categories_id
+
+# getting the products_id , pdt_name and quantity solds in the last 3 months from green_sales
+# all the products from green_product even if not sold in last 3 months
+-- using left join to include all products even those that have not been sold in the last 3 months
+-- using IFFNULL to assign 0 to the qty column
+
+SELECT 
+-- product table --
+  p.products_id,
+  p.pdt_name,
+-- sales table --
+  IFNULL(s.qty,0) AS qty
+FROM `first-project-408000.green_catalog.green_product` p
+LEFT JOIN `first-project-408000.green_catalog.green_sales` s
+ON p.products_id = s.pdt_id;
+
+
+
+
+
+
+
+
+
+
+
+
+
