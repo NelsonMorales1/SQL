@@ -1,0 +1,248 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):1/10/2024
+# project: Windoq Functions - Aggregation
+------------------------------------
+
+
+# Goal: Proportion - % of representation
+-- calculating number of products
+-- calculating percentage of turnover 
+-- creating a discting category field 
+
+
+
+# A.1: creating calculated field nb_products
+-- calcualting the number of products 
+-- ordering the number of products by order_id
+
+SELECT
+  date_date,
+---- key ----
+  orders_id,
+  products_id,
+-------------
+  COUNT(DISTINCT products_id) OVER(PARTITIOn BY orders_id) AS nb_products
+FROM `first-project-408000.course17.gwz_sales_17`
+ORDER BY
+  customers_id,
+  orders_id,
+  products_id
+
+
+# A.1.2: creating a calculated field orders_type
+-- the calculated field is a single_product if there is only one products_id
+-- the calculated field is multi_product if there are several products_id
+-- the calculated fied will work as the following:
+-- step 1: i will calculate a new column "nb_roducts" with COUNT() first
+-- step 2: i will calculate the new column "orders_type" based on the "nb_products"
+
+WITH sales_orders_type AS (
+SELECT
+  date_date,
+---- key ----
+  orders_id,
+  products_id,
+-------------
+  COUNT(DISTINCT products_id) OVER(PARTITIOn BY orders_id) AS nb_products
+FROM `first-project-408000.course17.gwz_sales_17`
+ORDER BY
+  customers_id,
+  orders_id,
+  products_id
+)
+
+SELECT
+  date_date,
+---- key ----
+  orders_id,
+  products_id,
+-------------
+  nb_products,
+  IF(nb_products=1,'single products','multi products') AS orders_type
+FROM sales_orders_type
+ORDER BY
+  date_date,
+  orders_id;
+
+# B.1: creating calculated field percent_turnover
+-- this will provide insight on what proportion a product represents in the order in terms of turnover
+-- this can help me identify whether it is the main products of the order or a secondary product
+
+
+# B.1.1: creating calculated field orders_turnover
+-- the main function will sum total turnover by orders_id
+-- this means that the turnover will represent the total revenue genrated by order made
+
+SELECT
+  date_date,
+---- key -----
+  orders_id,
+  products_id,
+---------------
+  SUM(turnover) OVER (PARTITION BY orders_id) AS orders_turnover
+FROM `first-project-408000.course17.gwz_sales_17`
+ORDER BY 
+  customers_id,
+  orders_id,
+  products_id
+
+
+# B.1.2: creating calculated field percent_turnover
+-- calculating a new "orders_turnover" column with a SUM() 
+-- calculating a new "percent_turnover" based on orders_turnover
+
+WITH sales_orders_turnover AS (
+SELECT
+  date_date,
+---- key -----
+  orders_id,
+  products_id,
+---------------
+  category_1,
+  turnover,
+  (ROUND(turnover-purchase_cost),2 )AS margin,
+  SUM(turnover) OVER (PARTITION BY orders_id) AS orders_turnover
+FROM `first-project-408000.course17.gwz_sales_17`
+ORDER BY 
+  customers_id,
+  orders_id,
+  products_id
+)
+
+SELECT 
+  date_date,
+---- key ------
+  orders_id,
+  products_id,
+--------------
+  category_1,
+  turnover,
+  margin,
+  ROUND(orders_turnover,2) AS orders_turnover,
+  (ROUND(SAFE_DIVIDE(turnover,orders_turnover)*100,2)) AS percent_turnover
+FROM sales_orders_turnover
+ORDER BY
+  date_date,
+  orders_id
+
+
+# C.1: creating calculated field level 1
+-- identifying whether there are several distinct category_1 in the order 
+-- this can help me identify whether the order is focused on a specific category type or whether it is a multi-category order
+
+# C.1.2: creating calculated field nb_cat_1
+-- calculating the number of distinct products of category_1
+
+SELECT
+  date_date,
+---- key ----
+  orders_id,
+  products_id,
+  customers_id,
+---------------
+  COUNT(DISTINCT category_1) OVER (PARTITION BY orders_id) AS nb_cat_1
+FROM `first-project-408000.course17.gwz_sales_17`
+
+
+# C.1.3: creating calculated field orders_cat_type
+-- step 1: calculating a new column nb_cat_1
+-- step 2: calculating a new column "orders_cat_type" based on nb_cat_1
+-- checking values for orders_id: 974525,974532 and 974541
+
+WITH sales_cat_1 AS( 
+SELECT
+  date_date,
+---- key ----
+  orders_id,
+  products_id,
+---------------
+  category_1,
+  COUNT(DISTINCT category_1) OVER (PARTITION BY orders_id) AS nb_cat_1
+FROM `first-project-408000.course17.gwz_sales_17`
+
+)
+
+SELECT
+  date_date,
+---- key -----
+  orders_id,
+  products_id,
+--------------
+  category_1,
+  nb_cat_1,
+  IF(nb_cat_1=1,"mono category","multi category") AS orders_cat_type
+FROM sales_cat_1
+WHERE TRUE
+  AND orders_ID IN(974525,974532,974541)
+ORDER BY
+  date_date,
+  orders_id
+
+# Goal: Decomposing Window into GROUP BY + JOIN
+-- calculating total turnover
+-- usind Disting category_1
+
+# A.1: creating calculated field orders_turnover
+-- i will be using GROUP BY + JOIN
+
+WITH orders AS (
+SELECT
+---- key ---
+  orders_id,
+------------
+  SUM(turnover) AS orders_turnover
+FROM `first-project-408000.course17.gwz_sales_17`
+GROUP BY
+  orders_id
+)
+
+SELECT
+  date_date,
+--- key -----
+  orders_id,
+  products_id,
+-------------
+  orders_turnover
+FROM `first-project-408000.course17.gwz_sales_17` 
+LEFT JOIN orders 
+USING(orders_id) 
+ORDER BY
+  customers_id,
+  orders_id,
+  products_id
+
+
+# B.1: creating calculated field nb_cat_1
+
+WITH orders AS (
+SELECT
+---- key ---
+  orders_id,
+------------
+  COUNT(DISTINCT category_1) AS nb_cat_1
+FROM `first-project-408000.course17.gwz_sales_17`
+GROUP BY
+  orders_id
+)
+
+SELECT
+  date_date,
+---- key ----
+  orders_id,
+  products_id,
+-------------
+  nb_cat_1
+FROM `first-project-408000.course17.gwz_sales_17`
+LEFT JOIN orders
+USING(orders_id)
+ORDER BY
+  customers_id,
+  orders_id,
+  products_id
+
+
+
+
+
+
