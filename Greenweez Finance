@@ -1,0 +1,88 @@
+--------------------------Table Exploration----------------------------
+
+# exploring the structures for tables : sales , product and shipping
+
+SELECT * 
+FROM `course14.gwz_sales`;
+
+# for the sales table i have 5 columns :date, order_id, product-id, turnover and quantity 
+
+SELECT * 
+FROM `course14.gwz_product`;
+
+#for the products table i have 2 columns : product_id and purchase_price
+
+SELECT * 
+FROM `course14.gwz_ship`;
+
+# for the shipping table i have 4 columns: order_id, shipping_fee, log_cost and ship_cost
+
+
+-----------------------primary keys------------------------------------------
+
+# identifying data keys to ensure data integrity and avoid inconsistencies 
+# primary keys must: be unique, not contain null values and 1 primary key per table
+
+# sales table 
+SELECT orders_id, products_id, COUNT(*) AS number
+FROM `course14.gwz_sales`
+GROUP BY orders_id, products_id # grouped to eliminate repetitive keys
+HAVING number >=2
+ORDER BY number DESC;
+
+# products table 
+SELECT  products_id, COUNT(*) AS number
+FROM `course14.gwz_product`
+GROUP BY  products_id # grouped to eliminate repetitive keys
+HAVING number >=2
+ORDER BY number DESC;
+
+
+# shipping table 
+SELECT  orders_id, COUNT(*) AS number
+FROM `course14.gwz_ship`
+GROUP BY  orders_id # grouped to eliminate repetitive keys
+HAVING number >=2
+ORDER BY number DESC;
+
+
+---------------------------Table Link and Relationship----------------------------------
+
+#the link between gwz_sales and gwz_product is the product id
+# The link between gwz_sales and gwz_product is the products_id.In gwz_sales, we have one line per product composing the order. For a product_id, we can have several orders_id, and thus several lines.In gwz_product, we have one line per product_id.
+#This is an N:1 relationship.
+
+
+#The link between gwz_sales and gwz_ship is the orders_id.
+#In gwz_sales, we have one line per product in the order. For an order, we can have several products_id, and therefore several lines.
+#In gwz_ship, we have one line per order number.
+#This is an N:1 relationship.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
