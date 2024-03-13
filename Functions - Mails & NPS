@@ -1,0 +1,192 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):1/07/2024
+# project: Functions - Mail & NPS
+------------------------------------
+
+#project goal A: Mail type - is_mail_be
+-- creating a personal function is_mail_be
+
+
+#A.1: diplaying the different Greenweez mail campaings
+
+SELECT
+---- key ---
+  journey_id,
+------------
+  journey_name,
+  sent_nb
+FROM `first-project-408000.course17.gwz_mail_17`
+ORDER BY 
+  sent_nb DESC
+
+
+# A.2: creating calculated field: mail_be 
+-- within the field the value will be 1 if the mail campaing is sent to Belgium and 0 otherwise.
+
+
+SELECT
+---- key ---
+  journey_id,
+------------
+  journey_name,
+  IF(journey_name LIKE "%_nlbe_%",1,0) AS mail_be,
+  sent_nb
+FROM `first-project-408000.course17.gwz_mail_17`
+ORDER BY 
+  sent_nb DESC
+
+
+
+# A.3: creating function: is_mail_be
+-- takes as input journey_name and returns 1 if the mail campaing is from belgium
+-- 0 otherwise
+
+CREATE FUNCTION course17.is_mail_be(journey_name STRING) AS (IF(journey_name LIKE "%nlbe%",1,0));
+
+
+
+# A.4: updating the select query to calculate the mail_be column usin the new is_mail_be function
+
+SELECT
+---- key ---
+  journey_id,
+------------
+  journey_name,
+  course17.is_mail_be(journey_name) AS mail_be,
+  sent_nb
+FROM `first-project-408000.course17.gwz_mail_17`
+ORDER BY 
+  sent_nb DESC
+
+#project goal B: mail_type
+-- there are 3 different mail_types:
+-- newsletter - when the trip name contain "nl" or "nlbe".
+-- abandoned_basket email when the name contains "panier_abandonne" (or "basket_abandoned")
+-- back_in_stock when the name contains "back_in_stock"
+
+# B.1: creating a mail_type function:
+
+CREATE FUNCTION course17.mail_type(journey_name STRING) AS(
+CASE
+  WHEN journey_name LIKE "%panier_abandonne%" THEN "abandoned_basket"
+  WHEN journey_name LIKE "%back_in_stock%" THEN "back_in_stock"
+  WHEN journey_name LIKE "%nl%" THEN "newsletter"
+  ELSE NULL
+END
+)
+
+# B.2: adding the previews function as a calculated field to the table 
+
+SELECT
+---- key ---
+  journey_id,
+------------
+  journey_name,
+  course17.is_mail_be(journey_name) AS mail_be,
+  course17.mail_type(journey_name) AS mail_type,
+  sent_nb
+FROM `first-project-408000.course17.gwz_mail_17`
+ORDER BY 
+  sent_nb DESC
+
+
+#project goal C: NPS
+
+# C.1: the following query displays NPS reviews for many transactions
+
+SELECT
+  date_date,
+  orders_id,
+  transporter,
+  global_note
+FROM `first-project-408000.course17.gwz_nps_17`
+
+
+# C.2: adding calculated field nps
+-- NPS=% promoters - %detractors
+-- detractors: give an overall score between 0 and 6
+-- passives: give an overall score between 7 and 8
+-- promoters: give an overall score between 9 and 10 
+
+SELECT
+  date_date,
+  orders_id,
+  transporter,
+  global_note,
+  CASE
+    WHEN global_note IN(9,10) THEN 1
+    WHEN global_note IN(7,8) THEN 0
+    WHEN global_note BETWEEN 0 and 6 THEN -1
+  END AS nps
+FROM `first-project-408000.course17.gwz_nps_17`
+
+
+
+# C.3: creating nps function
+
+CREATE FUNCTION course17.nps(global_note INT64) AS(
+CASE
+  WHEN global_note IN(9,10) THEN 1
+  WHEN global_note IN(7,8) THEN 0
+  WHEN global_note BETWEEN 0 and 6 THEN -1
+  ELSE NULL
+END
+)
+
+# C.4: adding the previous function as a calculated field to the query
+
+
+SELECT
+  date_date,
+  orders_id,
+  transporter,
+  global_note,
+  course17.nps(global_note) AS nps
+FROM `first-project-408000.course17.gwz_nps_17`
+
+#project goal D: Transporter(carrier)
+-- there are two different brands of transporters: Chrono and DPD
+-- there are two kinds of delivery mode: Pickup point delivery and Home delivery
+
+# D.1: creating delivery_mode function
+
+CREATE FUNCTION course17.delivery_mode(transporter STRING) AS(
+CASE
+  WHEN transporter LIKE "%Pickup%" THEN "Pickup"
+  WHEN transporter LIKE "%Home%" THEN "Home"
+  ELSE NULL
+END
+);
+
+# D.2: creating transporter_brand function
+CREATE FUNCTION course17.transporter_brand(transporter STRING) AS(
+CASE
+  WHEN transporter LIKE "%Chrono%" THEN "Chrono"
+  WHEN transporter LIKE "%DPD%" THEN "Dpd"
+  ELSE NULL
+END
+)
+
+# D.3: adding the previous functions as a calculated field to the query
+
+
+
+SELECT
+  date_date,
+  orders_id,
+  course17.delivery_mode(transporter) AS delivery_mode,
+  course17.transporter_brand(transporter) AS transporter_brand,
+  transporter,
+  global_note,
+  course17.nps(global_note) AS nps
+FROM `first-project-408000.course17.gwz_nps_17`
+
+
+
+
+
+
+
+
+
