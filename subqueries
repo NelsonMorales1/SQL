@@ -1,0 +1,32 @@
+-------------------Finance Monitoring------------------------
+# data visualization
+
+SELECT turnover 
+FROM `course17.gwz_sales_17`
+ORDER BY turnover DESC 
+--WHERE turnover = 92.58;
+
+
+# aggregating sales and orders_id
+WITH gwz_orders AS (
+SELECT 
+  date_date, 
+  orders_id, 
+  ROUND(sum(turnover,2) AS turnover),
+  ROUND(sum(SAFE_SUBSTRACT(turnover,purchase_cost),2)) AS margin
+FROM `course17.gwz_sales_17`
+GROUP BY orders_id, date_date;
+)
+
+
+
+
+
+SELECT 
+  date_date, 
+  orders_id, 
+  turnover,
+  --ROUND(sum(turnover,2) AS turnover),
+  --ROUND(sum(SAFE_SUBSTRACT(turnover,purchase_cost),2)) AS margin
+FROM `course17.gwz_sales_17`
+--GROUP BY orders_id, date_date;
