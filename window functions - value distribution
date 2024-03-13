@@ -1,0 +1,256 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):1/12/2024
+# project: Window Functions - Value Distribution
+------------------------------------
+
+
+# Goal: operational margin at a sales level
+
+# A.1: creating table gwz_sales_17_turnover_percent
+-- creating calculated field percent_turnover
+
+WITH sales_orders_turnover AS(
+SELECT
+  date_date,
+---- key -----
+  orders_id,
+  products_id,
+-------------
+  category_1,
+  turnover,
+  (turnover-purchase_cost) AS margin,
+  SUM(turnover) OVER (PARTITION BY orders_id) AS orders_turnover
+FROM `first-project-408000.course17.gwz_sales_17`
+ORDER BY
+  customers_id,
+  orders_id,
+  products_id
+)
+
+SELECT
+  date_date,
+---- key -----
+  orders_id,
+  products_id,
+--------------
+  category_1,
+  turnover,
+  margin,
+  ROUND(orders_turnover,2) AS orders_turnover,
+  SAFE_DIVIDE(turnover,orders_turnover) AS percent_turnover
+FROM sales_orders_turnover
+ORDER BY 
+  date_date,
+  orders_id
+
+# B.1:  creating gwz_sales_17_operational
+
+SELECT
+  date_date,
+---- key ------
+  orders_id,
+  products_id,
+--- sales table
+  sp.category_1,
+  sp.turnover,
+  sp.margin,
+--- ship table 
+  sp.percent_turnover,
+  ROUND(s.shipping_fee*sp.percent_turnover,2) AS shipping_fee,
+  ROUND(s.log_cost*sp.percent_turnover,2) AS log_cost,
+  ROUND(s.ship_cost*sp.percent_turnover,2) AS ship_cost
+FROM `first-project-408000.course17.gwz_sales_17_turnover_percent` sp
+INNER JOIN `first-project-408000.course17.gwz_ship_17` s
+USING(orders_id)
+ORDER BY
+  date_date,
+  orders_id
+
+
+# C.1: creating conversation test
+-- values have same result approximation withing 1 unit of difference.
+-- data results shows to contain well distrubuted operational statistics.
+
+SELECT
+  ROUND(SUM(shipping_fee)) AS nb
+FROM `first-project-408000.course17.gwz_ship_17`;
+
+SELECT
+  ROUND(SUM(shipping_fee)) AS nb
+FROM `first-project-408000.course17.gwz_sales_17_operational`;
+
+
+
+# D.1 Data analysis:
+-- displaying the following stats aggregated:
+-- turnover, margin , averga margin percent, operational margin, average operational margin percent.
+-- note: some products have a good margin but are heavy or are purchased as one-offs 
+-- this can affect the operational cost significantly
+
+SELECT
+---- key ----
+  category_1,
+-------------
+  ROUND(SUM(turnover)) AS turnover,
+  ROUND(SUM(margin)) AS margin,
+  ROUND((SUM(margin)/SUM(turnover))*100,1) AS margin_percent,
+  ROUND(SUM((margin+shipping_fee)-(ship_cost+log_cost))) AS operational_margin,
+  ROUND(SUM((margin+shipping_fee)-(ship_cost+log_cost))/SUM(turnover)) AS operational_margin_percent
+FROM `first-project-408000.course17.gwz_sales_17_operational` 
+GROUP BY category_1
+
+
+
+# goal: Ads margin at order level
+-- i want to analyze the margin at the order level to split it by order information rather than by date_date
+-- i will distribute the ads-costs on the different order by day according to the proportion of the turnover_percent
+
+
+# A.1: creating table gwz_campaing_17_date
+-- aggregating ads_costs on date_date between 2021-04-01 and 2021-09-30
+
+
+SELECT 
+  date_date,
+  SUM(ads_cost) AS ads_cost
+FROM `first-project-408000.course17.gwz_campaing_17`
+WHERE 
+  date_date BETWEEN "2021-04-01" and "2021-09-30"
+GROUP BY
+  date_date;
+
+
+
+# B.1: creating table gwz_orders_17_percent_turnover
+
+WITH orders_turnover AS(
+SELECT
+  date_date,
+  customers_id,
+---- key -------
+  orders_id,
+----------------
+  turnover,
+  margin,
+  shipping_fee,
+  operationnal_cost,
+  SUM(turnover) OVER(PARTITION BY date_date) AS turnover_date
+FROM `first-project-408000.course17.gwz_orders_17`
+)
+
+SELECT
+  date_date,
+  customers_id,
+---- key ------
+  orders_id,
+---------------
+  turnover,
+  margin,
+  shipping_fee,
+  operationnal_cost,
+  turnover/turnover_date AS percent_turnover_date
+FROM orders_turnover
+ORDER BY
+  date_date,
+  orders_id
+
+
+# C.1: creating gwz_orders_17_ads
+
+WITH orders_join AS(
+SELECT
+  op.date_date,
+  op.customers_id,
+------ key ------
+  op.orders_id,
+--- orders table 
+  op.turnover,
+  op.margin,
+  op.shipping_fee,
+  op.operationnal_cost,
+  ((op.margin+op.shipping_fee)-op.operationnal_cost) AS operationnal_margin,
+  op.percent_turnover_date,
+---- ads table ---
+  ac.ads_cost*op.percent_turnover_date AS ads_cost
+FROM `first-project-408000.course17.gwz_orders_17_percent_turnover` op
+INNER JOIN `first-project-408000.course17.gwz_campaing_17_date` ac
+USING(date_date)
+)
+
+SELECT
+  o.date_date,
+  o.customers_id,
+---- key -----
+  o.orders_id,
+-- orders table --
+  o.turnover,
+  o.margin,
+  o.shipping_fee,
+  o.operationnal_cost,
+  o.operationnal_margin,
+  o.ads_cost,
+  o.operationnal_margin-o.ads_cost AS ads_margin
+FROM orders_join o
+
+
+# D.1: conservation test
+-- note: the tests are not equal. 
+
+-- conversation test cost 1:
+--results: 530230.0
+SELECT 
+  ROUND(SUM(ads_cost)) AS nb
+FROM `first-project-408000.course17.gwz_orders_17_ads` ;
+-- conservation test cost 2:
+-- results:663086.0
+SELECT
+  ROUND(SUM(ads_cost)) AS nb
+FROM `first-project-408000.course17.gwz_campaing_17_date`;
+
+
+
+
+# E.1: identifying the root cause of the problem
+-- note: every day from september 2021 i have rows in the "gwz_campaing_17_date" that ar not in the join table
+-- the resonable explanaition to this is that in "gwz_orders_percent_turnover" i have only have data 
+-- up to august 2021.
+-- i need to update gwz_campaing between "2021-04-01" AND "2021-08-31"
+-- this table will present all dates that both tables do not share 
+WITH t1 AS(
+SELECT 
+  date_date,
+  ROUND(SUM(ads_cost)) AS nb
+FROM `first-project-408000.course17.gwz_orders_17_ads`
+GROUP BY
+  date_date
+)
+
+, t2 AS(
+SELECT
+  date_date,
+  ROUND(SUM(ads_cost)) AS nb
+FROM `first-project-408000.course17.gwz_campaing_17_date`
+GROUP BY
+  date_date
+)
+
+
+SELECT
+  t1.*,
+  t2.*
+FROM t1
+FULL OUTER JOIN t2
+USING(date_date)
+WHERE
+  t1.date_date IS NULL
+  or t2.date_date IS NULL
+  or IFNULL(t1.nb,-1) != IFNULL(t2.nb,-1)
+ORDER BY
+  IFNULL(t1.date_date,t2.date_date) DESC
+
+
+
+
+
+
