@@ -1,0 +1,136 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):01/28/2024
+# project: analyzing inventory
+------------------------------------
+
+------Table Exploration :
+# project goal:
+-- amount of inventory being kept in storage at regional sites
+-- performa an analysis on inventory and sales data to make recomendations
+
+# exploriing sales_info table:
+-- columns: 6
+-- rows: 200000
+
+SELECT *
+FROM `first-project-408000.sales.sales_info`;
+
+# exploring inventory table:
+-- columns: 6
+-- rows: 1000
+
+SELECT * 
+FROM `first-project-408000.sales.inventory`;
+
+# checking data range:
+-- data date ranges from 2017/01/01 to 2020/12/30
+
+SELECT
+  MIN(Date) AS min_date,
+  MAX(Date) AS max_date
+FROM `first-project-408000.sales.sales_info`;
+
+# evaluating monthly sales stats: 
+-- how many of each product is sold at each store at a given time
+
+SELECT
+  EXTRACT(YEAR FROM Date) AS year, -- time grouping
+  EXTRACT(MONTH from Date) AS month, -- time grouping
+  ProductId, -- need to know which products are sold
+  StoreId, -- need to know which stores are selling
+  SUM(quantity) AS units_sold, -- how many (impacts inventory)
+  AVG(UnitPrice) AS unit_price_proxy, -- can be interesting
+  COUNT(DISTINCT(salesID)) AS num_transactions -- unique transactions can be interesting
+FROM `first-project-408000.sales.sales_info`
+GROUP BY 
+  year,
+  month,
+  ProductId,
+  StoreId
+ORDER BY 
+  year,
+  month,
+  ProductId,
+  StoreId;
+
+# 
+with sales_history as(
+  SELECT
+    EXTRACT(YEAR FROM Date) AS year, 
+    EXTRACT(MONTH from Date) AS month, 
+    ProductId, 
+    StoreId,
+    SUM(quantity) AS units_sold,
+    AVG(UnitPrice) AS unit_price_proxy, 
+    COUNT(DISTINCT(salesID)) AS num_transactions 
+  FROM `first-project-408000.sales.sales_info`
+  GROUP BY 
+    year,
+    month,
+    ProductId,
+    StoreId
+  ORDER BY 
+    year,
+    month,
+    ProductId,
+    StoreId
+)
+SELECT
+ inventory*
+ , (SELECT AVG(UnitsSold) FROM sales_history
+      WHERE inventory.ProductID=sales_history.ProductID
+      AND inventory.StoreID=sales_history.StoreID) AS avg_quantity_sold_in_a_month
+FROM `first-project-408000.sales.inventory`
+
+
+
+
+
+SELECT
+  inventory. * ,
+  (SELECT AVG(UnitsSold) FROM sales_history
+    WHERE inventory.ProductID=sales_history.productID
+    AND inventory.StoreID=sales_history.StoreID) AS avg_quantity_sold_in_a_month
+FROM `first-project-408000.sales.inventory`;
+
+
+with sales_history as (
+  SELECT
+    EXTRACT(YEAR FROM Date) AS YEAR --time grouping
+  , EXTRACT(MONTH FROM Date) AS MONTH --time grouping
+  , ProductId --need to know which products are sold
+  , StoreID --need to know which stores are selling
+  , SUM(quantity) AS UnitsSold --how many (impacts inventory)
+  , AVG(UnitPrice) AS UnitPriceProxy --can be interesting
+  , COUNT(DISTINCT salesID) AS NumTransactions --unique transactions can be interesting
+  FROM `first-project-408000.sales.sales_info`
+  GROUP BY   YEAR,   MONTH, ProductId, StoreID
+)
+SELECT
+ inventory.*
+ , (SELECT AVG(UnitsSold) FROM sales_history
+      WHERE inventory.ProductID=sales_history.ProductID
+      AND inventory.StoreID=sales_history.StoreID) AS avg_quantity_sold_in_a_month
+FROM `first-project-408000.sales.inventory`
+
+
+
+with sales_history as (
+  SELECT
+    EXTRACT(YEAR FROM Date) AS YEAR --time grouping
+  , EXTRACT(MONTH FROM Date) AS MONTH --time grouping
+  , ProductId --need to know which products are sold
+  , StoreID --need to know which stores are selling
+  , SUM(quantity) AS UnitsSold --how many (impacts inventory)
+  , AVG(UnitPrice) AS UnitPriceProxy --can be interesting
+  , COUNT(DISTINCT salesID) AS NumTransactions --unique transactions can be interesting
+  FROM `first-project-408000.sales.sales_info`
+  GROUP BY   YEAR,   MONTH, ProductId, StoreID
+)
+SELECT
+ inventory.*
+ , (SELECT AVG(UnitsSold) FROM sales_history
+      WHERE inventory.ProductID=sales_history.ProductID
+      AND inventory.StoreID=sales_history.StoreID) AS avg_quantity_sold_in_a_month
+FROM `first-project-408000.sales.inventory`
