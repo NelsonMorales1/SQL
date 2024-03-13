@@ -1,0 +1,54 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):01/29/2024
+# project: analyzing bikeshare
+------------------------------------
+
+---- Table Exploration:
+# project goal:
+-- determine the popularity of their most used bike
+-- name of the station that the bike can be found 
+-- which bike is used most often
+
+# exploring bikeshare_trips table:
+-- fields: 10
+-- rows: 2130009
+
+SELECT *
+FROM `bigquery-public-data.austin_bikeshare.bikeshare_trips` ;
+
+
+----------- Data Analysis ------------------
+
+# creating temp table:
+-- finding the bike id number that have taken the longest total trips
+
+WITH
+  longest_used_bike as (
+    SELECT
+      bike_id,
+      SUM(duration_minutes) AS trip_duration
+    FROM `bigquery-public-data.austin_bikeshare.bikeshare_trips` 
+    GROUP BY bike_id
+    ORDER BY trip_duration DESC
+    LIMIT 1 
+  ) 
+
+# finding the station where the longest used bike leaves most often
+
+SELECT
+  trips.start_station_id,
+  COUNT(*) AS trip_ct
+FROM 
+  longest_used_bike AS longest
+INNER JOIN
+  `bigquery-public-data.austin_bikeshare.bikeshare_trips`  AS trips
+ON longest.bike_id = trips.bike_id
+GROUP BY 
+  trips.start_station_id
+ORDER BY 
+  trip_ct DESC
+LIMIT 1
+
+
+
