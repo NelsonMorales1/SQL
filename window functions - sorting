@@ -1,0 +1,211 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):1/09/2024
+# project: Windows function - sorting 
+------------------------------------
+
+# A.1: New order
+-- for each customer i want to sort the orders from the oldest date to the most recent
+
+# A.1.1 primary key test:
+-- test results: there is no data to display
+-- orders_id is primary key
+
+SELECT
+----- key ----
+  orders_id,
+--------------
+  COUNT(*) AS nb
+FROM `first-project-408000.course17.gwz_orders_17`
+GROUP BY 
+  orders_id
+HAVING nb>=2;
+
+# A.1.2: creating calculated field rn
+-- using ROW_NUMBER()
+-- for each customers it gives the orders number from the olders date to the most recent
+-- it will be partition by the distinct customers_id
+-- then it wil order it in ascending order by date_date
+
+SELECT
+  date_date,
+  customers_id,
+----- key ----
+  orders_id,
+--------------
+  ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date) AS rn
+FROM `first-project-408000.course17.gwz_orders_17`
+ORDER BY 
+  customers_id,
+  date_date,
+  rn
+
+# A.1.3: creating calculated field rk
+-- will be using RANK() function
+-- same functionality as row_number()
+
+SELECT
+  date_date,
+  customers_id,
+----- key ----
+  orders_id,
+--------------
+  ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date) AS rn,
+  RANK() OVER (PARTITION BY customers_id ORDER BY date_date) AS rk
+FROM `first-project-408000.course17.gwz_orders_17`
+ORDER BY 
+  customers_id,
+  date_date,
+  rn
+
+# A.1.3: comparing calculated fields rk to rn 
+-- the comparing fields values from customers_id will be 212497,205343 and 33690
+-- note: with row_numbers, arbitraty order is made between the orders of the same date, which allows continous order
+-- with rank(), the same rank is assigned to orders of the same date 
+-- note: orders_id is an incremental id affected to order
+-- the smaller it is the oldest the order is.
+-- by adding orders_id in ORDER by within the ROW_NUMBER and RANK statement to distinguish same date orders
+-- rk = rn
+
+SELECT
+  date_date,
+  customers_id,
+----- key ----
+  orders_id,
+--------------
+  ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rn,
+  RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rk
+FROM `first-project-408000.course17.gwz_orders_17`
+WHERE customers_id IN(33690,205343,212497)
+ORDER BY 
+  customers_id,
+  date_date,
+  rn
+
+# A.1.4: adding calculated field is_new
+-- the calculated field will equal to 1 if the order is the first customer order and 0 otherwise
+-- creating a temporary table where i calculate rn within
+-- calling the temporaty table where i create a calculated field to distinguish first orders customers made
+
+WITH orders_rn AS (
+  SELECT
+    date_date,
+    customers_id,
+  ----- key ----
+    orders_id,
+  --------------
+    ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rn,
+    RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rk
+  FROM `first-project-408000.course17.gwz_orders_17`
+  ORDER BY 
+    customers_id,
+    date_date,
+    rn
+)
+
+SELECT
+  date_date,
+  customers_id,
+---- key -----
+  orders_id,
+--------------
+  rn,
+  IF(rn=1,1,0) AS is_new
+FROM orders_rn
+ORDER BY 
+  customers_id,
+  date_date,
+  rn
+
+# B.1: Sales
+-- for each customer i want to sort the sales from the oldest date to the most recent
+
+# B.1.1: Creating calculated field ds_rk
+-- calculated field will be created using DENSE_RANK()
+-- including orders_id in order by to organize the orders in ascending order for each order made by customer
+-- they will be order by date from earliest to oldest
+
+SELECT
+  date_date,
+  customers_id,
+----- key ----
+  orders_id,
+--------------
+  ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rn,
+  RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rk,
+  DENSE_RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS ds_rk
+FROM `first-project-408000.course17.gwz_orders_17`
+ORDER BY 
+  customers_id,
+  date_date,
+  orders_id,
+  rn
+
+# B.1.2: comparing fields ds_rk, rk and rn
+-- the fields will be compared for the following customers_id: 98869,217071 and 268263
+-- note: values have been aligned so they represent the same rank in each field: rn, rk and ds_rk
+
+SELECT
+  date_date,
+  customers_id,
+----- key ----
+  orders_id,
+--------------
+  ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rn,
+  RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rk,
+  DENSE_RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS ds_rk
+FROM `first-project-408000.course17.gwz_orders_17`
+WHERE TRUE
+  AND customers_id IN (98869,217071,268263)
+ORDER BY 
+  customers_id,
+  date_date,
+  orders_id,
+  rn
+
+
+# B.1.3: creating calculated field is_new
+-- the calculated field is based on the ds_rk values
+-- using IF statemen will create calculated field if 1 value will input 1 otherwise 0
+
+WITH sales_ds_rk AS (    
+  SELECT
+    date_date,
+    customers_id,
+  ----- key ----
+    orders_id,
+  --------------
+    ROW_NUMBER() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rn,
+    RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS rk,
+    DENSE_RANK() OVER (PARTITION BY customers_id ORDER BY date_date,orders_id) AS ds_rk
+  FROM `first-project-408000.course17.gwz_orders_17`
+  WHERE TRUE
+    AND customers_id IN (98869,217071,268263)
+  ORDER BY 
+    customers_id,
+    date_date,
+    orders_id,
+    rn
+)
+
+SELECT
+  date_date,
+  customers_id,
+---- key -----
+  orders_id,
+  products_id,
+--------------
+  ds_rk,
+  ID(ds_rk=1,1,0) AS is_new
+FROM sales_ds_rk
+ORDER BY 
+  customers_id,
+  date_date,
+  orders_id
+
+
+
+
+
+
+
