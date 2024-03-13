@@ -1,0 +1,275 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):12/22/2023
+# project: Gwz Finance Join
+
+------------------------------------
+
+
+#project goal: sales and product join
+
+-- the goal is to set u a financial tracker comparing revenues to costs
+-- calculate product margin 
+
+# creating gwz_sales_margin table:
+-- performing an inner join between sales and product to locate necesary fields
+-- to calculate margin i need purchase price and quantity
+-- multiplying both and by substracting purchase cost would result in the margin
+
+
+SELECT 
+  s.date_date,
+---- key -----
+  s.orders_id,
+  s.products_id,
+---sales column--
+  s.turnover,
+  s.qty,
+--- product column --
+  p.purchase_price
+FROM `first-project-408000.course16.gwz_sales` s
+INNER JOIN `first-project-408000.course16.gwz_product` p
+ON s.products_id = p.products_id
+
+# testing: for gwz_sales_margin primary key
+-- tests results : there is no data to display 
+-- table key is a concanation between orders_id and products_id
+
+SELECT 
+--- key ------
+  orders_id,
+  products_id,
+--------------
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_sales_margin`
+GROUP BY 
+  orders_id,
+  products_id
+HAVING nb>=2
+order by nb DESC;
+
+# creating calculated fields : 
+-- purchase cost
+-- margin
+-- including in gwz_sales_magin table
+
+SELECT 
+  s.date_date,
+---- key -----
+  s.orders_id,
+  s.products_id,
+--- qty -------
+  s.qty,
+---revenue ---
+  s.turnover,
+--- cost ----
+  p.purchase_price,
+  ROUND(s.qty*p.purchase_price,2) AS purchase_cost,
+--- margin ----
+  ROUND(s.turnover -(s.qty*p.purchase_price),2)AS margin
+FROM `first-project-408000.course16.gwz_sales` s
+INNER JOIN `first-project-408000.course16.gwz_product` p
+ON s.products_id = p.products_id;
+
+# identifying producst_id present in gwz_product but not in gwz_sales
+-- identified product_id : 203072 and 203074
+SELECT
+  p.products_id
+FROM `first-project-408000.course16.gwz_sales` s
+RIGHT JOIN `first-project-408000.course16.gwz_product` p
+ON s.products_id = p.products_id
+WHERE 
+  s.products_id IS NULL
+
+
+# creating a financial report to include all gwz_sales with all product who are active and inactive in catalog
+-- to calculate the revenue and margin within the gwz_sales i will use a left join
+-- this will aid in focusing on financial tracking of sales 
+
+SELECT 
+  s.date_date,
+---- key -----
+  s.orders_id,
+  s.products_id,
+--- qty -------
+  s.qty,
+---revenue ---
+  s.turnover,
+--- cost ----
+  p.purchase_price,
+  ROUND(s.qty*p.purchase_price,2) AS purchase_cost,
+--- margin ----
+  ROUND(s.turnover -(s.qty*p.purchase_price),2)AS margin
+FROM `first-project-408000.course16.gwz_sales` s
+LEFT JOIN `first-project-408000.course16.gwz_product` p
+ON s.products_id = p.products_id;
+
+
+# testing: for gwz_sales_margin for null values
+-- tests results : there is no data to display 
+-- calculated field purchase_price has no null values 
+
+SELECT 
+--- key ----
+  orders_id,
+  products_id,
+-------------
+  purchase_price
+FROM `first-project-408000.course16.gwz_sales_margin`
+WHERE purchase_price IS NULL
+
+
+# creating: gwz_orders table 
+-- calculating operating margin
+-- creating calculated field sum of total : qty, turnover , purchase_cost and margin 
+-- grouping data by data and orders_id
+-- ordering data by date_date and orders_id
+
+SELECT
+  date_date,
+--- key ---
+  orders_id,
+------------
+  ROUND(SUM(qty),2) AS qty,
+  ROUND(SUM(turnover),2) AS turnover,
+  ROUND(SUM(purchase_cost),2) AS purchase_cost,
+  ROUND(SUM(margin),2) AS margin
+FROM `first-project-408000.course16.gwz_sales_margin`
+GROUP BY
+  date_date,
+  orders_id
+ORDER BY
+  date_date,
+  orders_id;
+
+
+# testing: for gwz_orders for primary key
+-- tests results : there is no data to display 
+--  orders_id is primary key for the gwz_orders table 
+
+SELECT 
+---- key ----
+  orders_id,
+-------------
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_orders`
+GROUP BY
+  orders_id
+HAVING NB>=2
+ORDER BY nb DESC
+
+
+
+# creating: gwz_orders_operational table
+-- performing a join operation to add the ship column to the gwz_orders using a left join
+
+SELECT
+  o.date_date,
+-- orders info --
+  o.orders_id,
+  o.qty,
+  o.turnover,
+  o.purchase_cost,
+  o.margin,
+-- shipping table --
+  sh.shipping_fee,
+  sh.log_cost,
+  sh.ship_cost
+FROM `first-project-408000.course16.gwz_orders` o
+LEFT JOIN `first-project-408000.course16.gwz_ship` sh
+ON o.orders_id = sh.orders_id
+
+
+# testing: for gwz_orders_operational for primary key and rows wth no null values
+-- A. primary key test:
+-- tests results : there is no data to display 
+-- orders_id is primary key for the gwz_orders_operational table
+
+SELECT 
+  orders_id,
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_orders_operational`
+GROUP BY
+  orders_id
+HAVING nb>=2
+order by nb DESC
+
+-- B. checking rows contain no null value for fields: ship_cost, shipping_fee or log_cost
+-- tests results: there is no data to display 
+-- desired fields contain no null values 
+
+SELECT
+-- key --
+  orders_id,
+----------
+  shipping_fee,
+  log_cost,
+  ship_cost
+FROM `first-project-408000.course16.gwz_orders_operational`
+WHERE TRUE
+  AND shipping_fee IS NULL
+  OR log_cost IS NULL
+  OR ship_cost IS NULL
+ORDER BY orders_id
+
+
+# creating calculated field : operational margin
+-- adding calculated field to : gwz_orders_operational table 
+-- rounded field to 2 decimal points
+
+SELECT
+  o.date_date,
+-- orders info --
+  o.orders_id,
+  o.qty,
+  o.turnover,
+  o.purchase_cost,
+  o.margin,
+-- shipping table --
+  sh.shipping_fee,
+  sh.log_cost,
+  sh.ship_cost,
+-- operational margin --
+  ROUND((o.margin + sh.shipping_fee - (sh.log_cost+sh.ship_cost)),2)AS operational_margin
+FROM `first-project-408000.course16.gwz_orders` o
+LEFT JOIN `first-project-408000.course16.gwz_ship` sh
+ON o.orders_id = sh.orders_id
+
+# creating: gwz_finance_day table 
+-- aggregating gwz_orders_operational_margin
+-- creating calculated fields: nb_transactions, average_basket, average_basket_bis
+
+SELECT
+--- key ---
+  date_date,
+-- orders info 
+  COUNT(orders_id) AS nb_transaction,
+  SUM(qty) AS qty,
+  ROUND(SUM(turnover),0) AS turnover,
+  ROUND(AVG(turnover),0) AS average_basket,
+  ROUND((SUM(turnover)/COUNT(orders_id)),1) AS average_basket_bis,
+  ROUND(SUM(purchase_cost),0) AS purchase_cost,
+  ROUND(SUM(margin),0) AS margin,
+-- ship info ---
+  ROUND(SUM(shipping_fee),0) AS shipping_fee,
+  ROUND(SUM(log_cost),0) AS log_cost,
+  ROUND(SUM(ship_cost),0) AS ship_cost,
+--- operational margin --
+  ROUND(SUM(operational_margin),0) AS operational_margin
+FROM `first-project-408000.course16.gwz_orders_operational`
+GROUP BY
+  date_date
+ORDER BY
+  date_date DESC
+
+
+
+
+
+
+
+
+
+
+
+
