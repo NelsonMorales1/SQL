@@ -1,0 +1,285 @@
+---------------------- Data Exploration ------------------------------------
+# understanding the table structure for cc_parcel:
+-- fields : parcel_id, parcel_tracking, transporter , priority, date_purchase
+-- date_shipping, date_delivery, date_cancelled
+-- 8 columns 
+-- 49 rows 
+
+SELECT *
+FROM `course15.cc_parcel`;
+
+
+# understanding the table structure for cc_parcel_product table:
+-- fields : parcel_id, model_name , qty
+-- total of 3 fields 
+-- rows: 199
+
+SELECT * 
+FROM `course15.cc_parcel_product`;
+
+
+# primary keys: cc_parcel
+-- there is no duplicates 
+-- primary key: parce_id
+
+SELECT 
+----Key-------
+  parcel_id,
+--------------
+  COUNT(*) AS nb
+FROM `course15.cc_parcel`
+GROUP BY parcel_id
+HAVING nb>=2
+ORDER BY nb DESC;
+
+#primary key: cc_parcel_product
+-- no data to display : the primary key is parcel_id + model_name
+
+SELECT 
+-----Key------
+  parcel_id,
+  model_name,
+--------------
+  COUNT(*) AS nb
+FROM `course15.cc_parcel_product`
+GROUP BY parcel_id, model_name
+HAVING nb>=2
+ORDER BY nb DESC;
+
+--------------Data Enrichment-------------------
+# Creating table: cc_parcel_kpi
+-- calculating status column
+-- parcel status
+
+SELECT
+------Key-----
+  parcel_id,
+----parcel info-
+  parcel_tracking,
+  transporter,
+  priority,
+-----Date------
+  date_purchase,
+  date_shipping,
+  date_delivery,
+  date_cancelled,
+--- status------
+  CASE
+    WHEN date_cancelled IS NOT NULL THEN 'Cancelled'
+    WHEN date_shipping IS NULL THEN 'In Progress'
+    WHEN date_delivery IS NULL THEN 'In Transit'
+    WHEN date_delivery IS NOT NULL THEN 'Delivered'
+    ELSE NULL
+  END AS status
+FROM `course15.cc_parcel`
+
+# delivery KPI
+-- calculating:
+-- expedition_time, transport_time, delivery_time
+
+# fields creation:
+
+-- verifying that the dates are in correct format
+-- are not in correct format when checking schema fixing using parde_date
+
+SELECT
+------Key-----
+  parcel_id,
+----parcel info-
+  parcel_tracking,
+  transporter,
+  priority,
+-----Date------
+  PARSE_DATE("%B %e, %Y", date_purchase) AS date_purchase,  -- PARSE_DATE(format,column)
+  PARSE_DATE("%B %e, %Y", date_shipping) AS date_shipping,
+  PARSE_DATE("%B %e, %Y", date_delivery) AS date_delivery,
+  PARSE_DATE("%B %e, %Y", date_cancelled) AS date_cancelled,
+--- status------
+  CASE
+    WHEN date_cancelled IS NOT NULL THEN 'Cancelled'
+    WHEN date_shipping IS NULL THEN 'In Progress'
+    WHEN date_delivery IS NULL THEN 'In Transit'
+    WHEN date_delivery IS NOT NULL THEN 'Delivered'
+    ELSE NULL
+  END AS status
+FROM `course15.cc_parcel`
+
+# adding time constraints fields : expedition_time, transport_time and delivery_time
+-- creating cc_parcel_kpi table
+
+
+SELECT
+------Key-----
+  parcel_id,
+----parcel info-
+  parcel_tracking,
+  transporter,
+  priority,
+-----Date------
+  PARSE_DATE("%B %e, %Y", date_purchase) AS date_purchase,  
+  PARSE_DATE("%B %e, %Y", date_shipping) AS date_shipping,
+  PARSE_DATE("%B %e, %Y", date_delivery) AS date_delivery,
+  PARSE_DATE("%B %e, %Y", date_cancelled) AS date_cancelled,
+--- status------
+  CASE
+    WHEN date_cancelled IS NOT NULL THEN 'Cancelled'
+    WHEN date_shipping IS NULL THEN 'In Progress'
+    WHEN date_delivery IS NULL THEN 'In Transit'
+    WHEN date_delivery IS NOT NULL THEN 'Delivered'
+    ELSE NULL
+  END AS status,
+----Time--------
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_shipping), PARSE_DATE("%B %e, %Y", date_purchase),DAY) AS expedition_time,
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_shipping),DAY) AS transport_time,
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_purchase),DAY) AS delivery_time,
+FROM `course15.cc_parcel`
+
+
+-----------------------Aggregation ---------------------------------------
+
+
+# creating cc_parcel_kpi_global table calculating the following statistics:
+-- number of parcels
+-- calculating avg expedition , transport and delivery time
+-- fixing time constraints decimal points 
+
+
+SELECT 
+  COUNT(*) AS nb_parcel,
+  ROUND(AVG(expedition_time),2) AS expedition_time,
+  ROUND(AVG(transport_time),2) AS transport_time,
+  ROUND(AVG(delivery_time),2) AS delivery_time
+FROM `course15.cc_parcel_kpi`;
+
+#creating : cc_parcel_kpi_transporter
+-- preparation time is equivalent between both carrier/transporter
+-- ups lower delivery time - premium carrier
+
+SELECT 
+  transporter,
+  COUNT(*) AS nb_parcel,
+  ROUND(AVG(expedition_time),2) AS expedition_time,
+  ROUND(AVG(transport_time),2) AS transport_time,
+  ROUND(AVG(delivery_time),2) AS delivery_time
+FROM `course15.cc_parcel_kpi`
+GROUP BY transporter;
+
+# creating table : cc_parcel_kpi_priority
+--organizing data by priority 
+
+
+SELECT 
+  priority,
+  COUNT(*) AS nb_parcel,
+  ROUND(AVG(expedition_time),2) AS expedition_time,
+  ROUND(AVG(transport_time),2) AS transport_time,
+  ROUND(AVG(delivery_time),2) AS delivery_time
+FROM `course15.cc_parcel_kpi`
+GROUP BY priority;
+
+
+# computing ratio between delivery time and the transport time:
+
+
+SELECT 
+  priority,
+  COUNT(*) AS nb_parcel,
+  ROUND(AVG(expedition_time),2) AS expedition_time,
+  ROUND(AVG(transport_time),2) AS transport_time,
+  ROUND(AVG(delivery_time),2) AS delivery_time,
+  SAFE_DIVIDE(ROUND(AVG(transport_time),2), ROUND(AVG(delivery_time),2))AS ratio_transport_delivery
+FROM `course15.cc_parcel_kpi`
+GROUP BY priority;
+
+# modifying cc_parcel_kpi: 
+-- adding month_purchase to the cc_parcel_kpi table
+-- extracting the date from date_purcase
+
+SELECT
+------Key-----
+  parcel_id,
+----parcel info-
+  parcel_tracking,
+  transporter,
+  priority,
+-----Date------
+  PARSE_DATE("%B %e, %Y", date_purchase) AS date_purchase,  
+  PARSE_DATE("%B %e, %Y", date_shipping) AS date_shipping,
+  PARSE_DATE("%B %e, %Y", date_delivery) AS date_delivery,
+  PARSE_DATE("%B %e, %Y", date_cancelled) AS date_cancelled,
+--- month ------
+  EXTRACT(MONTH FROM PARSE_DATE("%B %e, %Y", date_purchase)) AS month_purchase, -- EXTRACT( {year, month , day} FROM field)
+--- status------
+  CASE
+    WHEN date_cancelled IS NOT NULL THEN 'Cancelled'
+    WHEN date_shipping IS NULL THEN 'In Progress'
+    WHEN date_delivery IS NULL THEN 'In Transit'
+    WHEN date_delivery IS NOT NULL THEN 'Delivered'
+    ELSE NULL
+  END AS status,
+----Time--------
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_shipping), PARSE_DATE("%B %e, %Y", date_purchase),DAY) AS expedition_time,
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_shipping),DAY) AS transport_time,
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_purchase),DAY) AS delivery_time,
+FROM `course15.cc_parcel`
+
+# displaying the evolution of statistics by month for logistic team:
+
+-- from the data is can be observed that the delivery time has been stable over the majority of months
+-- may presents a longer delivery time than usual 
+
+SELECT 
+  month_purchase,
+  COUNT(*) AS nb_parcel,
+  ROUND(AVG(expedition_time),2) AS expedition_time,
+  ROUND(AVG(transport_time),2) AS transport_time,
+  ROUND(AVG(delivery_time),2) AS delivery_time
+FROM `course15.cc_parcel_kpi`
+GROUP BY month_purchase
+ORDER BY month_purchase;
+
+# adding delay field to the cc_parcel_kpi table:
+-- package is considered late when greater than 5 days
+
+SELECT
+------Key-----
+  parcel_id,
+----parcel info-
+  parcel_tracking,
+  transporter,
+  priority,
+-----Date------
+  PARSE_DATE("%B %e, %Y", date_purchase) AS date_purchase,  
+  PARSE_DATE("%B %e, %Y", date_shipping) AS date_shipping,
+  PARSE_DATE("%B %e, %Y", date_delivery) AS date_delivery,
+  PARSE_DATE("%B %e, %Y", date_cancelled) AS date_cancelled,
+--- month ------
+  EXTRACT(MONTH FROM PARSE_DATE("%B %e, %Y", date_purchase)) AS month_purchase, -- EXTRACT( {year, month , day} FROM field)
+--- status------
+  CASE
+    WHEN date_cancelled IS NOT NULL THEN 'Cancelled'
+    WHEN date_shipping IS NULL THEN 'In Progress'
+    WHEN date_delivery IS NULL THEN 'In Transit'
+    WHEN date_delivery IS NOT NULL THEN 'Delivered'
+    ELSE NULL
+  END AS status,
+----Time--------
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_shipping), PARSE_DATE("%B %e, %Y", date_purchase),DAY) AS expedition_time,
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_shipping),DAY) AS transport_time,
+  DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_purchase),DAY) AS delivery_time,
+--- delay ------
+  IF(date_delivery IS NULL, NULL, IF(DATE_DIFF(PARSE_DATE("%B %e, %Y", date_delivery), PARSE_DATE("%B %e, %Y", date_purchase),DAY)>5,1,0)) AS delay
+FROM `course15.cc_parcel`
+
+# Adding computation delay_rate to cc_parcel_kpi_global:
+-- delay rate is 12% 
+SELECT 
+  COUNT(*) AS nb,
+  ROUND(AVG(expedition_time),2) AS expedition_time,
+  ROUND(AVG(transport_time),2) AS transport_time,
+  ROUND(AVG(delivery_time),2) AS delivery_time,
+  ROUND(AVG(delay),2) AS delay_rate
+FROM `course15.cc_parcel_kpi`
+
+
+
