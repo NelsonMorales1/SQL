@@ -1,0 +1,129 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):12/24/2023
+# project: Greenweez Finance - includes ads costs
+
+------------------------------------
+
+
+#project goal: 
+-- include an advertising costs in the report
+-- the goald is to include ads_costs in gwz_finance_day in order to calculate ads_margin
+-- ads_margin is equal to margin_operational minuds ads_cost
+
+
+------ Adding Advertisement cost to the financial report -----
+
+
+# testing: for gwz_campaing primary key
+-- tests results : there is no data to display 
+-- table primary key is a concanation between date_date and campaing_name
+
+SELECT 
+-- key ---
+  date_date,
+  campaign_name,
+----------
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_campaign`
+GROUP BY 
+  date_date,
+  campaign_name
+HAVING nb>=2
+ORDER BY nb DESC;
+
+# creating: gwz_campaing_day table
+
+-- calculating ad_margin
+-- goal to reach gwz_finance_day and gwz_campaing to calculate ads_margin
+-- Joining gwz_campaing with gwz_finance_day on date_date is a n:1 relationship
+-- this would cause duplication on the gwz_campaing and thus ads_costs would be duplicated
+-- proceding to aggregate gwz_campaing on date_date with date_date as the key
+
+
+SELECT
+---- key ----
+  date_date,
+-------------
+  SUM(ads_cost) AS ads_cost
+FROM `first-project-408000.course16.gwz_campaign`
+GROUP BY
+  date_date
+ORDER BY
+  date_date;
+
+
+# creating: gwz_finance_ads_day table
+-- left joing between gwz_finance_day and gwz_campaing_day 
+-- adding ads_cost column 
+-- adding ads_marging
+
+SELECT 
+------- key ------
+  fd.date_date,
+--- orders info --
+  fd.nb_transaction,
+  fd.qty,
+  fd.turnover,
+  fd.average_basket,
+  fd.purchase_cost,
+  fd.margin,
+---- ship info ---
+  fd.shipping_fee,
+  fd.log_cost,
+  fd.ship_cost,
+-- operational_margin--
+  fd.operational_margin,
+----- ads --------
+  cd.ads_cost,
+  (fd.operational_margin - cd.ads_cost) AS ads_margin
+FROM `first-project-408000.course16.gwz_finance_day` fd
+LEFT JOIN `first-project-408000.course16.gwz_campaign_day` cd
+ON fd.date_date = cd.date_date;
+
+
+# creating: gwz_finance_ads_month
+
+SELECT
+--- key --------
+  EXTRACT(MONTH FROM date_date) AS month,
+-- order info ----
+  SUM(nb_transaction) AS nb_transaction,
+  SUM(turnover) AS turnover,
+  ROUND(SUM(turnover)/SUM(nb_transaction),1) AS average_basket,
+-- margin --------
+  ROUND(SUM(margin)/SUM(nb_transaction),1) AS margin_ord,
+  ROUND((SUM(margin)/SUM(turnover))*100,1) AS margin_percent,
+-- ship infos ----
+  ROUND(SUM(shipping_fee)/SUM(nb_transaction),1) AS shipping_fee_ord,
+  ROUND(SUM(log_cost+ship_cost)/SUM(nb_transaction),1) AS ship_cost_ord,
+-- ads ----
+  ROUND(SUM(ads_cost)/SUM(nb_transaction)) AS ads_cost_ord,
+  ROUND(sum(ads_margin)/SUM(nb_transaction)) AS ads_margin_ord,
+  SUM(ads_margin) AS ads_margin
+  FROM `first-project-408000.course16.gwz_finance_ads_day`
+GROUP BY 
+  month
+ORDER BY 
+  month DESC
+
+-- insight: 
+-- there is an increase on the number of transaction during the last 2 months
+-- turnover has increased during the last 2 months 
+-- average basket has had an increase over the last 2 months 
+-- there is a decrease in the margin
+-- margin percent decrease over the last 2 months by 2.6%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
