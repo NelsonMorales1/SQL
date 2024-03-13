@@ -1,0 +1,96 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):01/22/2024
+# project: analyzing weather data
+
+------------------------------------
+
+------Table Exploration :
+#project goal:
+-- obtain temperature, wind speed , precipitation for stations la guardia 
+-- and jfk every day in 2020
+
+# exploring public data gsod:
+# fields: stn, wban, date, year , mo, da, temp, count,
+-- _temp, dewp, count_dewp, slp, count_slp,stp, count_stp, visib, count_visib
+-- wdsp, count_wdsp, mxpsd, gust, max, flag_max,minflag_minprcp,flag_prcp,
+--sndp, fog, rain_drizzle,snow_ice_pellets, hail, thunder, tornado_funnel_cloud
+# Rows: 4119205
+
+SELECT *
+FROM `bigquery-public-data.noaa_gsod.gsod2020`;
+
+---------- Data Cleaning --------------------
+# checking for primary key
+-- a unique value for each row can be created 
+-- a concanate-primary key for the table can be created using fields st, wban and date
+-- rows present no duplication
+
+SELECT 
+---- Primary key -----
+  stn,
+  wban,
+  date,
+-----------------------
+  COUNT(*) AS nb
+FROM `bigquery-public-data.noaa_gsod.gsod2020`
+GROUP BY 
+  stn, 
+  wban,
+  date
+HAVING 
+  nb>=2
+ORDER BY 
+  nb DESC;
+
+# Creating demos dataset:
+-- note: using IF function to replace values 9999,999.9 and
+-- 99.99 with NULL.
+-- note: this change is taken in consideration due the fact the dataset 
+-- explains that these are the defaul values when measurement is missing
+# field definitions:
+# stn = station, date = a-m-d , wdsp = wind speed, temp = temperature,
+-- prcp = precipitation.
+-- note: converted wind speed values to correct format
+-- schema shows values to be string when values are float
+-- note : using WHERE clause to include only station : la guardia(725030), JFK(744860)
+-- note : ordering table by date in DESC (earliest date to oldest)
+-- note: ordering table by station in ASC ( guardia then jfk)
+
+# creating table: nyc_weather
+
+SELECT
+  stn,
+  date,
+  IF(
+    temp=9999.9,
+    NULL,
+    temp) AS temperature,
+  IF(
+    wdsp='999.9',
+    NULL,
+    CAST(wdsp AS FLOAT64)) AS wind_speed,  -- converting wndsp
+  If(
+    prcp=99.99,
+    0,
+    prcp) AS precipitation
+FROM `bigquery-public-data.noaa_gsod.gsod2020`
+WHERE
+  stn="725030"
+  OR stn="744860"
+ORDER BY 
+  date DESC,
+  stn ASC;
+
+  
+-------- data analysis ----------
+# nyc_weather table:
+-- finding the average temperature in june 2020
+-- results: based on the insight the average temperature is about 72.8833...
+
+SELECT 
+  AVG(temperature)
+FROM `demos.nyc_weather`
+WHERE
+  date BETWEEN '2020-06-01' AND '2020-06-30';
+
