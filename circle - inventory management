@@ -1,0 +1,316 @@
+---------------------------------Table Exploration---------------------------------------
+# meeting team purchase needs:
+-- controling stock out 
+-- anticipate future sales 
+-- place the right orders to the production team that suplies the garmets
+
+
+#stock table dataset: 9 columns and 468 rows
+
+SELECT * 
+FROM `course15.circle_stock`;
+
+# sales table dataset: 3 columns 20679 rows
+
+SELECT *
+FROM `course15.circle_sales`;
+
+
+----------------Primary Key-------------------------------------------------
+
+
+# sales primary key: 
+-- using this query i ensure there are no duplicates so date_date and product_id are primary key
+
+
+SELECT 
+  date_date, 
+  product_id, 
+  COUNT(*) AS nb
+FROM `course15.circle_sales`
+GROUP BY 
+  date_date, 
+  product_id
+HAVING nb>=2
+ORDER BY nb desc;
+
+
+# circle stock primary key
+
+
+SELECT 
+  model, 
+  count(*) AS nb
+FROM `course15.circle_stock`
+GROUP BY model
+HAVING nb>=2
+ORDER BY nb DESC;
+
+-- model is not the primary key
+--ordering by color and size
+
+# verifying model with duplicates :
+-- for the model it can be observed various color and sizes 
+-- model - color - size seem to be primary key for the table because they have one unique value for each
+
+SELECT *
+FROM `course15.circle_stock`
+WHERE model='SH003P02-SL01-M'
+ORDER BY color, size;
+
+# verifying the primary key by grouping and checking for duplicates :
+-- this query results in no duplicates confirms the primary key being a combination of 3 columns
+
+SELECT 
+  model, 
+  color, 
+  size, 
+  count(*) AS nb
+FROM `course15.circle_stock`
+GROUP BY model, color, size
+HAVING nb>=2
+ORDER BY nb DESC;
+
+ 
+
+----------------------------------Table Cleaning--------------------------------------------
+
+#concatenating stock table model-color-size
+
+SELECT 
+  model, #key
+  color, #key
+  size, #key
+  CONCAT(model,'_',color,'_',size) AS product_id, 
+  model_name, #name
+  color_name, #name
+  stoc.new AS pdt_new , #product inf0
+  price,  #product info
+  forecast_stock, # stock metrics
+  stock           # stock metrics
+FROM `course15.circle_stock` stoc;
+
+#checking if product_id is a primary key
+
+
+SELECT 
+  CONCAT(model,'_',color,'_',size) AS product_id ,
+  COUNT(*) AS nb
+FROM `course15.circle_stock` stoc
+GROUP BY product_id
+HAVING nb>=2
+ORDER BY nb DESC;
+
+# one thing to notice is that product_id has 6 cells with null values
+#identifying null columns in primary key
+
+
+SELECT 
+  model, #key
+  color, #key
+  size, #key
+  CONCAT(model,'_',color,'_',size) AS product_id, 
+  model_name, #name
+  color_name, #name
+  stoc.new AS pdt_new , #product inf0
+  price,  #product info
+  forecast_stock, # stock metrics
+  stock           # stock metrics
+FROM `course15.circle_stock` stoc
+WHERE CONCAT(model,'_',color,'_',size) IS NULL;
+
+# when using concat values in size have null values so the end result when using CONCAT will be null
+# Providing default value where there is no size on the product 
+
+SELECT 
+  model, 
+  color, 
+  size, 
+  CONCAT(model,'_',color,'_',IFNULL(size,'no-size')) AS product_id, 
+  model_name, 
+  color_name,
+  stoc.new AS pdt_new , 
+  price,  
+  forecast_stock, 
+  stock           
+FROM `course15.circle_stock` stoc;
+
+# data exploration for primary key:
+
+SELECT 
+  CONCAT(model,'_',color,'_',IFNULL(size,'no-size')) AS product_id ,
+  COUNT(*) AS nb
+FROM `course15.circle_stock` stoc
+GROUP BY product_id
+HAVING nb>=2
+
+ORDER BY nb DESC;
+
+# No duplication. new product_id is the correct primary key
+
+------------------Table Enrichment--------------------------------------------
+
+# creating: circle_stock_name table
+-- adding a product name column : model_name-color_name-size
+SELECT 
+-------KEY--------
+  CONCAT(model,'_',color,'_',IFNULL(size,'no-size')) AS product_id,
+-----------------
+  model, 
+  color, 
+  size, 
+  -- name
+  model_name, 
+  color_name,
+  CONCAT(model_name,'',color_name,IF(size IS NULL,"",CONCAT('-Taille', size))) AS product_name,
+  -- product info
+  stoc.new AS pdt_new , 
+  price,  
+  -- forecast_stock
+  forecast_stock, 
+  stock           
+FROM `course15.circle_stock` stoc
+WHERE TRUE
+ORDER BY product_id;
+
+
+# model type column:
+-- analyzing stock and filtering by different model types
+
+# creating table: circle_stock_cat
+
+SELECT
+-----KEY--------- 
+  product_id,
+----------------
+  model, 
+  color, 
+  size, 
+  -- Category
+  CASE
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 't-shirt') THEN 'T-shirt'  --Lower(): converst string to lower case
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'short') THEN 'Short'       --REGEXP_CONTAINS:-- T/f values 
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'legging') THEN 'Legging'
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'brassière|crop-top') THEN 'Crop-top'
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'tour de cou|tapis|gourde') THEN "Accessories"
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'débardeur|haut') THEN 'Top'
+    ELSE NULL
+END AS model_type,
+-- name 
+  model_name, 
+  color_name,
+  product_name,
+-- product info
+  pdt_new, 
+  price,
+-- stock metrics
+  forecast_stock,
+  stock
+FROM `course15.circle_stock_name`
+WHERE TRUE;
+
+# checking that each product has an associated model_type
+-- detecting product_id with no model_type
+
+SELECT *
+FROM `course15.circle_stock_cat`
+WHERE
+  model_type IS NULL;
+
+#Note: brassiere is the correct string gramatic creating new table with fixed value
+-- fixing and creating the reviewd version of circle_stock_cat_table
+
+SELECT
+-----KEY--------- 
+  product_id,
+----------------
+  model, 
+  color, 
+  size, 
+  -- Category
+  CASE
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 't-shirt') THEN 'T-shirt'  --Lower(): converst string to lower case
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'short') THEN 'Short'       --REGEXP_CONTAINS:-- T/f values 
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'legging') THEN 'Legging'
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'brassi.re|crop-top') THEN 'Crop-top'
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'tour de cou|tapis|gourde') THEN "Accessories"
+    WHEN REGEXP_CONTAINS(LOWER(model_name), 'débardeur|haut') THEN 'Top'
+    ELSE NULL
+END AS model_type,
+-- name 
+  model_name, 
+  color_name,
+  product_name,
+-- product info
+  pdt_new, 
+  price,
+-- stock metrics
+  forecast_stock,
+  stock
+FROM `course15.circle_stock_name`
+WHERE TRUE
+ORDER BY product_id;
+
+
+#verifying that each product has an associated model type : no data type all values have been cleaned
+
+SELECT *
+FROM `course15.circle_stock_cat`
+WHERE
+  model_type IS NULL;
+
+
+# adding a in_stock and stock_value field to the saved data table stock_cat
+# creating new table: circle_stock_kpi
+
+
+SELECT
+------key------ 
+  product_id,
+---------------
+  model,
+  color,
+  size,
+  --category 
+  model_type,
+  --name
+  model_name,
+  color_name,
+  product_name,
+  --product info
+  pdt_new,
+  --stock metrics
+  forecast_stock,
+  stock,
+  IF(stock>0,1,0) AS in_stock,
+  --value
+  price,
+  ROUND(stock*price,2) AS stock_value
+FROM `course15.circle_stock_cat`
+WHERE TRUE
+ORDER BY product_id;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
