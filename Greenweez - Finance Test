@@ -1,0 +1,73 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):12/23/2023
+# project: Greenweez finance Test
+
+------------------------------------
+
+------ project goal: 
+-- testing tables for primary key:
+
+
+# testing: gwz_orders_operational for primary keys
+-- tests results : there is no data to display 
+-- orders_id is primary key, no duplication found
+
+SELECT 
+--- key ----
+  orders_id,
+-------------
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_orders_operational`
+GROUP BY 
+  orders_id
+HAVING nb>=2
+ORDER BY nb DESC
+
+
+# testing: for gwz_order_operational Joined query with gwz_ship
+-- checking that non of the columns in the joined query contain null values 
+-- tests results : there is no data to display 
+-- the thest therefore verifies that all orders_id of gwz_orders are present in gwz_ship
+
+SELECT
+  sh.orders_id,
+  op.orders_id
+FROM `first-project-408000.course16.gwz_ship` sh
+LEFT JOIN `first-project-408000.course16.gwz_orders_operational` op
+ON sh.orders_id = op.orders_id
+WHERE TRUE
+  AND sh.orders_id IS NULL;
+
+
+# comparing number of rows 
+#gwz_ship-> 167552
+#gwz_orders_operational-> 167551
+# Explanation -> orders_id = 1002564 is in gwz_ship but not in gwz_orders_operational
+
+# A)
+SELECT
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_ship`;
+
+SELECT
+  COUNT(*) AS nb
+FROM `first-project-408000.course16.gwz_orders_operational`;
+
+
+# B) 
+
+
+SELECT
+  sh.orders_id,
+  op.orders_id
+FROM `first-project-408000.course16.gwz_ship` sh
+LEFT JOIN `first-project-408000.course16.gwz_orders_operational` op
+ON sh.orders_id = op.orders_id
+WHERE TRUE
+  AND op.orders_id IS NULL;
+
+
+
+
+
