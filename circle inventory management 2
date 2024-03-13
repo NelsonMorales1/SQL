@@ -1,0 +1,149 @@
+-----------------  Aggregation  & SQL Pivot Table------------------------
+# meeting the needs of the purchase team step 2:
+-- displaying stock and shortage statistics by : model_type, model, product and globally
+-- identifying the top products 
+-- calculating the estimated number of days of stock and remaining for the top products 
+
+
+# performing an aggregation from the circle_stock_kpi
+
+SELECT 
+  COUNT(in_stock) AS nb_products, -- total number of products
+  SUM(in_stock) AS nb_products_in_stock, -- total number of products in stock
+  SUM(stock) AS stock,                  -- the total stock
+  ROUND(AVG(1-in_stock),3) AS shortage_range, -- the shortange range
+  SUM(stock_value) AS stock_value             -- the total stock value
+FROM `course15.circle_stock_kpi`;
+
+#displaying same metrics aggregated by model_type
+
+
+SELECT 
+  COUNT(in_stock) AS nb_products, 
+  SUM(in_stock) AS nb_products_in_stock, 
+  SUM(stock) AS stock,                 
+  ROUND(AVG(1-in_stock),3) AS shortage_range, 
+  SUM(stock_value) AS stock_value             
+FROM `course15.circle_stock_kpi`
+GROUP BY model_type;
+
+# displaying metrics aggregate by model_type and model_name
+
+SELECT 
+  COUNT(in_stock) AS nb_products, 
+  SUM(in_stock) AS nb_products_in_stock, 
+  SUM(stock) AS stock,                 
+  ROUND(AVG(1-in_stock),3) AS shortage_range, 
+  SUM(stock_value) AS stock_value             
+FROM `course15.circle_stock_kpi`
+GROUP BY model_type, model_name;
+
+# sales aggregation:
+-- determining top 10 products for the purchase team
+-- previous months average sales by product to estimate the remaining inventory by product in terms of days 
+
+# creating top_products table:
+-- deterining the top products
+
+SELECT 
+  product_id,
+  SUM(qty) AS qty
+FROM `course15.circle_sales`
+GROUP BY product_id    -- grouping by id
+ORDER BY qty DESC      -- ordering from bigges to smallest 
+LIMIT 10;              -- limiting to top tan values 
+
+# creating new circle_stock_kpi_top:
+-- adding "top_products" column to stock_table
+-- adding a new top_column field that is equal to 0.
+
+SELECT 
+  *
+  ,0 AS top_products
+FROM `course15.circle_stock_kpi`; 
+
+
+# updating circle_stock_kpi_top table
+-- setting to 1 at the top_products identified in the top_products table 
+
+UPDATE `course15.circle_stock_kpi_top` s
+SET s.top_products = 1
+FROM `course15.top_products` p
+WHERE 
+  s.product_id = p.product_id ;
+
+
+-------------------Estimating Daily products sales and days of stock remaining-----------------
+
+# creating new table circle_sales_daily:
+--computing avg_daily_qty_ field providing average daily sales in the last 91 days 
+
+  SELECT 
+    product_id,
+    SUM(qty) AS qty_91, -- computing field calculating the total quantity of product in the last 91 days
+    ROUND(SUM(qty)/91,2) AS avg_daily_qty_91 -- avg daily qty computation by the product_id
+  FROM `course15.circle_sales`
+  WHERE TRUE 
+    AND date_date>= DATE_SUB('2021-10-01', INTERVAL 91 DAY) -- filtering for date 91 days ago and above
+  GROUP BY product_id;   -- grouping by product_id 
+
+
+
+# determining top_products with low_stock:
+
+-- purchase team wants to pay attention to top products with low stock less than 50
+-- i am using the forecast_stock because if the purchase team has already ordered products, there is no need to re-order them.
+
+SELECT 
+  ---key----
+  product_id,
+  ----------
+  product_name,
+  top_products,
+  stock,          -- would provide available stock values in merchendise  
+  forecast_stock  -- determine average quantities sold over key time periods
+FROM `course15.circle_stock_kpi_top`
+WHERE TRUE
+  AND top_products=1
+  AND forecast_stock<50;   -- filtering for less than 50
+
+# computaional analysis results :
+-- 3 products identified with low stock:
+--TS001BTB-MAM01_U_BL_M,TS001BTB-MAM01_U_WH_M,TS001BTB-MAM01_U_WH_XS
+
+
+#  calculating the estimates number of days remaining for the products :
+
+SELECT 
+  s.product_id,
+  s.product_name,
+  s.stock,
+  s.forecast_stock,
+  d.qty_91,
+  d.avg_daily_qty_91,
+  SAFE_DIVIDE(s.stock,d.avg_daily_qty_91) AS nb_day_estimated
+FROM `course15.circle_stock_kpi` s
+FULL OUTER JOIN `course15.circle_sales_daily` d
+ON s.product_id = d.product_id
+WHERE TRUE
+  AND s.product_id IN ("TS001BTB-MAM01_U_WH_XS", "TS001BTB-MAM01_U_BL_M", "TS001BTB-MAM01_U_WH_M")
+ORDER BY product_id;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
