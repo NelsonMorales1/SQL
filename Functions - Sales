@@ -1,0 +1,108 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):1/09/2024
+# project: Functions - Sales
+------------------------------------
+
+
+# A.1: displaying the sales information:
+
+SELECT
+  date_date,
+  orders_id,
+  products_id,
+  promo_name,
+  turnover_before_promo,
+  turnover,
+  purchase_cost
+FROM `first-project-408000.course17.gwz_sales_17`;
+
+
+# B.1: calculating margent percent
+-- adding calculated field margent_percent
+-- displaying digit at 1 percent 
+-- caculating margin = turnover - purchase_cost
+-- calculating margin percent = margin/turnover
+
+SELECT
+  date_date,
+  orders_id,
+  products_id,
+  promo_name,
+  turnover_before_promo,
+  turnover,
+  purchase_cost,
+  ROUND(SAFE_DIVIDE((turnover-purchase_cost),turnover)*100,1) AS margin_percent
+FROM `first-project-408000.course17.gwz_sales_17`;
+
+
+# B.2: creating margin_percent function 
+
+CREATE FUNCTION course17.margin_percent(turnover FLOAT64, purchase_cost FLOAT64) AS(
+  ROUND(SAFE_DIVIDE((turnover-purchase_cost),turnover)*100,1)
+)
+
+# B.3: adding previous function as a calculated field in the query
+
+SELECT
+  date_date,
+  orders_id,
+  products_id,
+  promo_name,
+  turnover_before_promo,
+  turnover,
+  purchase_cost,
+  course17.margin_percent(turnover,purchase_cost) AS margin_percent
+FROM `first-project-408000.course17.gwz_sales_17`;
+
+
+# C.1: Calculating promo_percent function
+-- adding calculated field promo_percent
+-- rounding values to 1 digit
+
+
+SELECT
+  date_date,
+  orders_id,
+  products_id,
+  promo_name,
+  turnover_before_promo,
+  turnover,
+  purchase_cost,
+  course17.margin_percent(turnover,purchase_cost) AS margin_percent,
+  ROUND(SAFE_DIVIDE((turnover_before_promo-turnoveer), turnover_before_promo)*100,1) AS promo_percent
+FROM `first-project-408000.course17.gwz_sales_17`;
+
+# C.2: creating  promo_percent function
+ CREATE FUNCTION course17.promo_percent(turnover FLOAT64,turnover_before_promo FLOAT64) AS(
+  ROUND(SAFE_DIVIDE(turnover_before_promo-turnover,turnover_before_promo)*100,1)
+ )
+
+
+# C.3: adding previous function into the query
+
+
+SELECT
+  date_date,
+  orders_id,
+  products_id,
+  promo_name,
+  turnover_before_promo,
+  turnover,
+  purchase_cost,
+  course17.margin_percent(turnover,purchase_cost) AS margin_percent,
+  course17.promo_percent(turnover, turnover_before_promo) AS promo_percent
+FROM `first-project-408000.course17.gwz_sales_17`;
+
+
+
+
+
+
+
+
+
+
+
+
+
