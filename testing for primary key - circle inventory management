@@ -1,0 +1,61 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):12/20/2023
+# project: testing primary key
+
+------------------------------------
+ 
+# project goal:
+-- testing for primary key
+
+# checking circle_stock_cat for primary key:
+-- test result: there is no data to display 
+-- product_id is primary key
+
+SELECT 
+---- primary key --
+  product_id,
+------------------
+  COUNT(*) AS nb
+FROM `first-project-408000.course15.circle_stock_cat`
+GROUP BY 
+  product_id
+HAVING nb>=2
+ORDER BY nb DESC;
+
+# verifying model, color and size are primary key for circle_stock
+-- test result: there is no data to display
+-- primary key concanation of model-color-size 
+
+SELECT 
+-- key ----
+  model,
+  color,
+  size,
+-----------
+  COUNT(*) AS nb
+FROM `first-project-408000.course15.circle_stock`
+GROUP BY
+  model,
+  color,
+  size
+HAVING nb>=2;
+
+# verfying circel_stock_kpi for primary key
+-- test result: there is no data to display 
+--  primary key product_id
+SELECT 
+-- key --
+  product_id,
+-----------
+  COUNT(*) AS nb
+FROM `first-project-408000.course15.circle_stock_kpi`
+GROUP BY 
+  product_id
+HAVING nb>=2
+ORDER BY 
+  product_id
+
+
+
+
