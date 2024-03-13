@@ -1,0 +1,61 @@
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):01/27/2024
+# project: analyzing avocado market
+
+------------------------------------
+
+---- Table Exploration:
+# project goal:
+-- total number of bags of avocado sold on each date for each location
+
+# exploring table: avocado_prices
+-- field : 14 
+-- Rows : 18249
+
+SELECT *
+FROM `avocado_data.avocado_prices`
+
+
+# identified fields for analysis:
+-- Date, Region, Small_bags, Large_Bags
+-- XLarge_Bags, Total_Bags
+
+------------------- Data Analysis --------------------------------
+
+# veryfying total number of bags:
+-- adding calculated field total_bags_calc
+
+SELECT
+  Date,
+  region,
+  Small_Bags,
+  Large_Bags,
+  XLarge_Bags,
+  Total_Bags,
+  Small_Bags + Large_Bags + XLarge_Bags AS total_bags_calc
+FROM `avocado_data.avocado_prices`
+
+
+# calculating the percentage of small bags: 
+-- adding calculated field small_bags_percent
+-- using WHERE to filter total_bags records <> 0
+SELECT
+  Date,
+  region,
+  Total_Bags,
+  Small_Bags,
+  (Small_Bags/Total_Bags)*100 AS small_bags_percent
+FROM `avocado_data.avocado_prices`
+WHERE Total_Bags != 0;
+  
+
+
+
+
+
+
+
+
+
+
