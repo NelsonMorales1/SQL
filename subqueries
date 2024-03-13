@@ -1,32 +1,404 @@
--------------------Finance Monitoring------------------------
-# data visualization
-
-SELECT turnover 
-FROM `course17.gwz_sales_17`
-ORDER BY turnover DESC 
---WHERE turnover = 92.58;
+------------------------------------
+# Version: 1.0.0
+# date(m/d/a):12/25/2023
+# project: subqueries
+------------------------------------
 
 
-# aggregating sales and orders_id
-WITH gwz_orders AS (
+#project goal A,1: Gwz finance monitoring
+-- Using subquery instead of table for simple aggregation
+-- in this first half of the query i am recreating the gwz finance monitoring analyzis
+-- then i will use a Subquery to re create the same end result
+
+
+# step1: agregating gwz_sales on orders_id and date_date
+
 SELECT 
-  date_date, 
-  orders_id, 
-  ROUND(sum(turnover,2) AS turnover),
-  ROUND(sum(SAFE_SUBSTRACT(turnover,purchase_cost),2)) AS margin
-FROM `course17.gwz_sales_17`
-GROUP BY orders_id, date_date;
+  date_date,
+--- key ----
+  orders_id,
+------------
+  ROUND(SUM(turnover),2) AS turnover,
+  ROUND(SUM(turnover - purchase_cost),2) AS margin
+FROM `first-project-408000.course17.gwz_sales_17`
+GROUP BY 
+  date_date,
+  orders_id
+
+# step 2: joining gwz_ship and gwz_orders on orders_id to gather all information 
+-- on gwz_orders_operational
+
+SELECT
+  date_date,
+---- key ----
+  o.orders_id,
+-- orders infos 
+  o.turnover,
+  o.margin,
+-- ship info --
+  s.shipping_fee,
+  (s.log_cost + s.ship_cost) AS operational_cost
+FROM `first-project-408000.course16.gwz_orders` o
+LEFT JOIN `first-project-408000.course17.gwz_ship_17` s
+ON o.orders_id = s.orders_id;
+
+# step 3: creating gwz_orders_join table
+-- this step i am looking to highligh how to create a financial monitoring report using subqueries 
+-- using WITH AS and subqueries to perform this operation in one query
+-- the first part will use use WITH AS and create a temporary set
+-- the second part will use the temporary set inside the SELECT query to perform a Join with another dataset
+
+WITH orders_join AS
+  (SELECT
+    date_date,
+    --- key ---
+    orders_id,
+    -----------
+    ROUND(SUM(turnover),2) AS turnover,
+    ROUND(SUM(turnover-purchase_cost),2) AS margin
+  FROM `first-project-408000.course17.gwz_sales_17`
+  GROUP BY
+    date_date,
+    orders_id)
+
+SELECT
+  date_date,
+---- key -----
+  o.orders_id,
+-- orders infos --
+  o.turnover,
+  o.margin,
+-- ship infos --
+  s.shipping_fee,
+  (s.log_cost+s.ship_cost) AS operational_cost
+FROM orders_join o
+LEFT JOIN `first-project-408000.course17.gwz_ship_17` s
+ON o.orders_id =s.orders_id
+
+
+#project goal A.2: orders and ads joins
+-- now instead of having 3 steps with the gwz_campaing_orders intermediate table and the gwz_campaing_day intermediate table
+-- using WITH AS to recreate same in 1 query
+
+# creating: gwz_campaing_join_17
+-- orders_date: aggregating gwz_orders_join on date_date and saving it in campaing_orders
+-- campaing_date: aggregating gwz_campaing_17 on date_date and saving in campaing_date
+-- joining gwz_campaing_date and gwz_campaing_orders on date_date to gather all order and ads statistics.
+
+
+WITH orders_join AS
+  (SELECT
+  ---- key ----
+    date_date,
+  -------------
+    SUM(turnover) AS turnover,
+    SUM(margin) AS margin,
+    SUM(shipping_fee) AS shipping_fee,
+    SUM(operational_cost) AS operational_cost
+  FROM `first-project-408000.course17.gwz_orders_join`
+  GROUP BY 
+    date_date)
+  
+,campaing_date AS
+  (SELECT
+  --- key -----
+    date_date,
+    -------------
+    SUM(ads_cost) AS ads_cost
+  FROM `first-project-408000.course17.gwz_campaing_17`
+  GROUP BY
+    date_date)
+  
+SELECT
+-- key -- 
+  o.date_date,
+--- orders info--
+  o.turnover,
+  o.margin,
+  o.shipping_fee,
+  o.operational_cost,
+--- ship info ---
+  c.ads_cost
+FROM orders_join o
+LEFT JOIN campaing_date c
+USING(date_date)
+ORDER BY date_date DESC
+
+
+#project goal B: Categorization of promotions
+-- the team wants to calculate the promo_percet and sort it witht he promo_type column in 3 steps
+-- step 1: (promo_table), calculating the promo value based on the turnover_before_promo and the turnover in the first step
+-- step 2: (promo_percent_table), calculating the promo_percent based on the promo and the turnover in the second step 
+-- step 3: categorizing the promo_type based on the promo_percent.
+-- note: promo_percent categorized as : >=30 as high promo , < 10 as low promo and between 10 and 30 excluded the medium promo
+-- note: if it contains DLC or DLUO then short lived.
+
+
+WITH promo_table AS (
+  SELECT
+    -- key --
+    orders_id,
+    products_id,
+    ----------
+    turnover,
+    promo_name,
+    (turnover_before_promo - turnover) AS promo
+  FROM `first-project-408000.course17.gwz_sales_17`
 )
 
 
+,promo_percent_table AS (
+  SELECT
+  --- key ---
+    orders_id,
+    products_id,
+  -------------
+    turnover,
+    promo_name,
+    promo,
+    ROUND(SAFE_DIVIDE(promo, turnover),2) AS promo_percent
+  FROM promo_table
+)
 
 
+SELECT
+--- key ---
+  orders_id,
+  products_id,
+------------
+  turnover,
+  promo_name,
+  promo,
+  promo_percent,
+  CASE
+    WHEN UPPER(promo_name) LIKE "DLC" OR UPPER(promo_name) LIKE "DLUO" THEN "short-lived"
+    WHEN promo_percent >=0.30 THEN "High promotion"
+    WHEN promo_percent < 0.10 THEN "Low promotion"
+    WHEN promo_percent >=0.10 AND promo_percent < 0.30 THEN "Medium promotion"
+    ELSE NULL
+  END AS promo_type
+FROM promo_percent_table
+
+
+#project goal C: Using Subqueries instead of JOIN
+-- through this excersises i will be using subqueries in the WHERE condition or as columns in SELECT
+-- note: this is a bad practice but will be usefull to prove a point for research purpose
+
+
+# C.A.1: Sub-requests in WHERE:
+-- all the sales lines corresponding to "Chrono Pickup" are included in order to perform an analysis
+
+SELECT
+---- key ----
+  orders_id,
+  products_id,
+--------------
+  category_1,
+
+FROM `first-project-408000.course17.gwz_sales_17` s
+WHERE
+  s.orders_id IN (
+                  SELECT
+                    orders_id
+                  FROM `first-project-408000.course17.gwz_ship_17`
+                  WHERE transporter = "Chrono Pickup"
+  )
+
+
+# C.A.2: creating a join instead of the WHERE subquery
+-- joining gwz_sales_17 with gwz_ship_17
+
+SELECT
+---- key -----
+  s.orders_id,
+  s.products_id,
+---------------
+  s.category_1,
+  sh.transporter,
+  s.turnover,
+  s.qty
+FROM `first-project-408000.course17.gwz_sales_17` s
+INNER JOIN `first-project-408000.course17.gwz_ship_17` sh
+ON s.orders_id = sh.orders_id
+WHERE 
+  sh.transporter = "Chrono Pickup"
+
+
+# C.B.1: calcualing all the sales lines corresponding to orders with a dn overall score "global_note"
+-- of note of 5 or less 
+
+SELECT
+--- key --
+  orders_id,
+  product_id,
+------------
+  category_1,
+  turnover,
+  qty
+FROM `first-project-408000.course17.gwz_sales_17` s
+WHERE 
+  s.orders_id IN (
+                  SELECT 
+                    orders_id
+                  FROM `first-project-408000.course17.gwz_nps_17`
+                  WHERE
+                    global_note<=5
+  )
+
+
+#C.B.2: using a join case for the same function 
+-- note: correct way of doing the same table 
+SELECT
+------- key ------
+  s.orders_id,
+  s.customers_id,
+-------------------
+  s.category_1,
+  n.global_note,
+  s.turnover,
+  s.qty
+FROM `first-project-408000.course17.gwz_sales_17` s
+INNER JOIN `first-project-408000.course17.gwz_nps_17` n
+ON s.orders_id = n.orders_id
+WHERE 
+  global_note<=5; 
+
+
+
+#project goal D: SUBQUERY in SELECT 
+# C.B.1: getting the transporter( carrier), log_cost and ship_cost to the sales table for analysis
+
+SELECT
+-------- key -------
+  orders_id,
+  products_id,
+--- sales table ----
+  category_1,
+  turnover,
+  qty, 
+--- ship table ----
+  (SELECT transporter FROM `first-project-408000.course17.gwz_ship_17`t WHERE t.orders_id = s.orders_id) AS transporter,
+  (SELECT log_cost FROM `first-project-408000.course17.gwz_ship_17` t WHERE t.orders_id = s.orders_id) AS log_cost,
+  (SELECT ship_cost FROM `first-project-408000.course17.gwz_ship_17` t WHERE t.orders_id = s.orders_id ) AS ship_cost
+FROM `first-project-408000.course17.gwz_sales_17` s
+
+
+# C.B.2: recreating the same tabel using the join function
+
+SELECT
+--- key -----
+  s.orders_id,
+  s.products_id,
+--- sales table -- 
+  s.category_1,
+  s.turnover,
+  s.qty,
+-- ship table 
+  t,transporter,
+  t.log_cost,
+  t,ship_cost
+FROM `first-project-408000.course17.gwz_sales_17` s
+INNER JOIN `first-project-408000.course17.gwz_ship_17` sh
+ON s.orders_id = sh.orders_id; 
+
+
+# C.D.1: adding the global_ntoe and sgt columns from the "nps_table" to the sales table 
+
+-- using a subquery in the column field
 
 SELECT 
-  date_date, 
-  orders_id, 
+--- key --- 
+  orders_id,
+  products_id,
+-- sales table 
+  category_1,
   turnover,
-  --ROUND(sum(turnover,2) AS turnover),
-  --ROUND(sum(SAFE_SUBSTRACT(turnover,purchase_cost),2)) AS margin
-FROM `course17.gwz_sales_17`
---GROUP BY orders_id, date_date;
+  qty,
+--- nps table --
+  (SELECT global_note FROM `first-project-408000.course17.gwz_nps_17` n WHERE n.orders_id = s.orders_id) AS global_note,
+  (SELECT sgt FROM `first-project-408000.course17.gwz_nps_17` n WHERE n.orders_id = s.orders_id) AS sgt
+FROM `first-project-408000.course17.gwz_sales_17` s
+
+
+#C.D.2:  creating a join instead of a subquery 
+
+SELECT 
+----- key -----
+  s.orders_id,
+  s.products_id,
+-- sales table -
+  s.category_1,
+  s.turnover,
+  s.qty,
+--- nps table ---
+  n.global_note,
+  n.sgt
+FROM `first-project-408000.course17.gwz_sales_17` s
+LEFT JOIN `first-project-408000.course17.gwz_nps_17` n
+ON s.orders_id = n.orders_id
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
