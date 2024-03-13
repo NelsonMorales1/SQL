@@ -1,0 +1,316 @@
+---------------------- Table Exploration --------------------------
+
+# understanding the table sturcture for cc_funnel:
+-- fields: company , sector , date_lead, date_opportunity, date_customer, date_lost, priority
+-- 7 columns
+-- 999 rows
+
+
+SELECT *
+FROM `course15.cc_funnel`;
+
+
+# primary keys:
+-- primary key: company
+-- duplication: crazy running
+-- removed data duplicates
+-- removed empty cells
+
+SELECT 
+----Key----
+  company,
+-----------
+  COUNT(*) AS nb
+FROM  `course15.cc_funnel`
+GROUP BY company
+HAVING nb >=2
+ORDER BY nb DESC;
+
+--------- Data Enrichment & Analysis-----------
+# sales teams want to know the current state of the funnel:
+-- computing a global overview , vision split by priority and view divided by priority 
+
+# Creating cc_funnel_kpi table:
+-- creating deal_stage field in cc_funnel 
+
+
+SELECT
+---key----
+  company,
+--prospect info---
+  sector,
+  priority,
+--- date ---
+  date_lead,
+  date_opportunity,
+  date_customer,
+  date_lost,
+-- deal stage --
+  CASE
+    WHEN date_lost IS NOT NULL THEN "4 - Lost"
+    WHEN date_customer IS NOT NULL THEN "3 - customer"
+    WHEN date_opportunity IS NOT NULL THEN "2 - opportunity"
+    WHEN date_lead IS NOT NULL THEN "1 - Lead"
+    ELSE NULL
+  END AS deal_stage
+FROM `course15.cc_funnel`
+
+# primary key testing:
+-- testing cc_funnel_kpi
+-- primary key company posses no duplicates
+
+SELECT 
+---Key---
+  company,
+--------
+  count(*) AS nb
+FROM `course15.cc_funnel_kpi`
+GROUP BY 
+  company
+HAVING nb>=2
+ORDER BY nb DESC;
+
+# testing cc_funnel_kpi
+-- primary key posses no null values
+-- new column deal_stage has no null values
+
+SELECT 
+---Key---
+  company,
+----------
+  deal_stage
+FROM `course15.cc_funnel_kpi`
+WHERE TRUE
+  AND deal_stage IS NULL
+ORDER BY company;
+# creating : cc_funnel_stage_globl
+--aggregating the cc_funel_kpi globally
+-- calculating field: nb_prospect
+-- aggregating the results globally by deal_stage to obtain the number of prospects at each stage
+
+SELECT 
+---- key ----
+  deal_stage,
+-------------
+  COUNT(*) AS nb_prospect
+FROM `course15.cc_funnel_kpi`
+GROUP BY 
+  deal_stage
+ORDER BY 
+  deal_stage;
+
+# creating cc_funnel_stage_priority
+-- aggregating cc_funel_kpi by priority
+-- adding field priority to the calculated table
+
+SELECT 
+---- key ----
+  deal_stage,
+-------------
+  priority,
+  COUNT(*) AS nb_prospect
+FROM `course15.cc_funnel_kpi`
+GROUP BY 
+  deal_stage,
+  priority
+ORDER BY 
+  deal_stage,
+  priority;
+
+# aggregating cc_funel_kpi by priority with deal_stage using COUNTIF:
+-- creating table with priority and deal_stage fields:
+
+SELECT
+--- key ----
+  priority,
+------------
+  COUNTIF(deal_stage = '1 - Lead') AS lead,
+  COUNTIF(deal_stage = '2 - Oppoertunity') AS opportunity,
+  COUNTIF(deal_stage = '3 - Customer') AS customer,
+  COUNTIF(deal_stage = '4 - Lost') AS lost
+FROM `course15.cc_funnel_kpi`
+GROUP BY
+  priority
+ORDER BY 
+  priority;
+
+
+--------------------- Funnel Statistics --------------------------
+# calculating different statistics for the funnel
+-- number of conversions 
+-- conversion rate for each step of the funnel
+-- conversion time for each stage of the funnel 
+
+# sales team would like to see the previous KPI statistics aggregated: 
+
+-- globally 
+-- broken down by priority 
+-- broken down by month 
+
+# creating cc_funnel_kpi with new fields:
+# adding calculated field rate system
+# lead2conversion: 
+-- 1 if the prostpect has reached the customer stage ,
+-- 0 if the prospect has reached the lost stage
+-- null otherwise
+# lead2opportunity:
+-- 1 if the prospect has reached the opportunity stage
+-- 0 if the prospect has reached the lost stage
+-- null otherwise
+# opportunity2customer:
+-- 1 if the prospect has reached the custmer stage
+-- 0 if the lead has reached the lost stage after the opportunity stage
+-- null otherwise
+
+SELECT 
+--- key ---
+  company,
+--prospect info-
+  sector,
+  priority,
+--- date -----
+  date_lead,
+  date_opportunity,
+  date_customer,
+  date_lost,
+-- deal stage ---
+  CASE
+    WHEN date_lost IS NOT NULL THEN '4 - Lost'
+    WHEN date_customer IS NOT NULL THEN '3 - Customer'
+    WHEN date_opportunity IS NOT NULL THEN '2 - Opportunity'
+    WHEN date_lead IS NOT NULL THEN '1 - Lead'
+    ELSE NULL
+  END AS deal_stage,
+--- rate ----
+  CASE
+    WHEN date_lost IS NOT NULL THEN 0
+    WHEN date_opportunity IS NOT NULL THEN 1
+    ELSE NULL
+  END AS lead2customer,
+  CASE
+    WHEN date_lost IS NOT NULL THEN 0
+    WHEN date_opportunity IS NOT NULL THEN 1
+    ELSE NULL
+  END AS lead2opportunity,
+  CASE
+    WHEN date_lost IS NOT NULL THEN 0
+    WHEN date_opportunity IS NOT NULL THEN 1
+    ELSE NULL
+  END AS opportunity2customer
+FROM `course15.cc_funnel`;
+
+# adding time conversion field: 
+# lead2conversion_time:
+-- date differencial between date_customer and date_prospect
+# lead2opportunity_time:
+-- date differencial between date_opportunity and date_prospect
+# opportunity2customer_time:
+-- date differencial between date_customer and date_opportunity
+
+
+SELECT 
+--- key ---
+  company,
+--prospect info-
+  sector,
+  priority,
+--- date -----
+  date_lead,
+  date_opportunity,
+  date_customer,
+  date_lost,
+-- deal stage ---
+  CASE
+    WHEN date_lost IS NOT NULL THEN '4 - Lost'
+    WHEN date_customer IS NOT NULL THEN '3 - Customer'
+    WHEN date_opportunity IS NOT NULL THEN '2 - Opportunity'
+    WHEN date_lead IS NOT NULL THEN '1 - Lead'
+    ELSE NULL
+  END AS deal_stage,
+--- rate ----
+  CASE
+    WHEN date_lost IS NOT NULL THEN 0
+    WHEN date_opportunity IS NOT NULL THEN 1
+    ELSE NULL
+  END AS lead2customer,
+  CASE
+    WHEN date_lost IS NOT NULL THEN 0
+    WHEN date_opportunity IS NOT NULL THEN 1
+    ELSE NULL
+  END AS lead2opportunity,
+  CASE
+    WHEN date_lost IS NOT NULL THEN 0
+    WHEN date_opportunity IS NOT NULL THEN 1
+    ELSE NULL
+  END AS opportunity2customer,
+----- time -----
+  DATE_DIFF(date_customer,date_lead,DAY) AS lead2customer_time,
+  DATE_DIFF(date_opportunity,date_lead,DAY) AS lead2opportunity_time,
+  DATE_DIFF(date_customer,date_opportunity,DAY) AS opportunity2customer_time
+FROM `course15.cc_funnel`;
+
+
+#creating cc_funnel_kpi_global:
+-- aggregating rate and time kpis at different levels of granularity:
+-- globally, by priority, by month
+
+SELECT 
+-- prospect & conversion --
+  COUNT(*) AS prospect,
+  COUNT(date_customer) AS customer,
+-- rate --
+  ROUND(AVG(lead2customer)*100,1) AS lead2customer_rate,
+  ROUND(AVG(lead2opportunity)*100,1) AS lead2opportunity_rate,
+  ROUND(AVG(opportunity2customer)*100,1) AS opportunity2customer_rate,
+-- time -- 
+  ROUND(AVG(lead2customer_time),2) AS lead2customer_time,
+  ROUND(AVG(lead2opportunity_time),2) AS lead2opporunity_time,
+  ROUND(AVG(opportunity2customer_time)) AS opportunity2customer_time
+FROM `course15.cc_funnel_kpi`;
+
+
+# creating cc_funnel_priority
+
+
+SELECT 
+  priority,
+-- prospect & conversion --
+  COUNT(*) AS prospect,
+  COUNT(date_customer) AS customer,
+-- rate --
+  ROUND(AVG(lead2customer)*100,1) AS lead2customer_rate,
+  ROUND(AVG(lead2opportunity)*100,1) AS lead2opportunity_rate,
+  ROUND(AVG(opportunity2customer)*100,1) AS opportunity2customer_rate,
+-- time -- 
+  ROUND(AVG(lead2customer_time),2) AS lead2customer_time,
+  ROUND(AVG(lead2opportunity_time),2) AS lead2opporunity_time,
+  ROUND(AVG(opportunity2customer_time)) AS opportunity2customer_time
+FROM `course15.cc_funnel_kpi`
+GROUP BY 
+  priority;
+
+# creating cc_funnel_month
+
+
+SELECT 
+  EXTRACT(MONTH FROM date_lead) AS month_lead,
+-- prospect & conversion --
+  COUNT(*) AS prospect,
+  COUNT(date_customer) AS customer,
+-- rate --
+  ROUND(AVG(lead2customer)*100,1) AS lead2customer_rate,
+  ROUND(AVG(lead2opportunity)*100,1) AS lead2opportunity_rate,
+  ROUND(AVG(opportunity2customer)*100,1) AS opportunity2customer_rate,
+-- time -- 
+  ROUND(AVG(lead2customer_time),2) AS lead2customer_time,
+  ROUND(AVG(lead2opportunity_time),2) AS lead2opporunity_time,
+  ROUND(AVG(opportunity2customer_time)) AS opportunity2customer_time
+FROM `course15.cc_funnel_kpi`
+GROUP BY 
+  month_lead
+ORDER BY 
+  month_lead;
+
+
+
+
